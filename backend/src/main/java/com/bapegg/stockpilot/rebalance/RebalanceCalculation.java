@@ -2,8 +2,6 @@ package com.bapegg.stockpilot.rebalance;
 
 import com.bapegg.stockpilot.analysis.InventoryAnalysisRules;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.Optional;
 
 /**
@@ -11,6 +9,14 @@ import java.util.Optional;
  * {@code knowledge/business-rules.md} section 4. Caller is responsible for ensuring the
  * receiver and donor share the same SKU, belong to different stores and to the same
  * analysis result.
+ * <p>
+ * Per business-rules.md section 2, transfer calculations must use the unrounded sales
+ * rate. This implementation therefore takes the raw 7-day sold quantity (an integer,
+ * exactly as recorded) rather than a pre-divided {@code averageDailySales}: the target
+ * and retained quantities reduce to an exact integer ceiling division
+ * ({@code soldQuantityInWindow * coverageDays / observationWindowDays}), with no
+ * intermediate BigDecimal rounding that could push a value that is exactly an integer
+ * (e.g. {@code 1/7 * 7 = 1}) just over that integer and inflate the ceiling result.
  */
 public record RebalanceCalculation(
         int receiverShortageQuantity,
@@ -19,16 +25,20 @@ public record RebalanceCalculation(
 ) {
 
     public static Optional<RebalanceCalculation> calculate(
-            BigDecimal receiverAverageDailySales,
+            int receiverSoldQuantityInWindow,
             int receiverAvailableQuantity,
-            BigDecimal donorAverageDailySales,
+            int donorSoldQuantityInWindow,
             int donorAvailableQuantity
     ) {
-        int receiverTargetQuantity = ceilToUnits(receiverAverageDailySales, InventoryAnalysisRules.RECEIVER_TARGET_COVERAGE_DAYS)
+        int receiverTargetQuantity = ceilDiv(
+                receiverSoldQuantityInWindow * InventoryAnalysisRules.RECEIVER_TARGET_COVERAGE_DAYS,
+                InventoryAnalysisRules.OBSERVATION_WINDOW_DAYS)
                 + InventoryAnalysisRules.SAFETY_STOCK_UNITS;
         int receiverShortageQuantity = Math.max(receiverTargetQuantity - receiverAvailableQuantity, 0);
 
-        int donorRetainedQuantity = ceilToUnits(donorAverageDailySales, InventoryAnalysisRules.DONOR_RETAINED_COVERAGE_DAYS)
+        int donorRetainedQuantity = ceilDiv(
+                donorSoldQuantityInWindow * InventoryAnalysisRules.DONOR_RETAINED_COVERAGE_DAYS,
+                InventoryAnalysisRules.OBSERVATION_WINDOW_DAYS)
                 + InventoryAnalysisRules.SAFETY_STOCK_UNITS;
         int donorTransferableQuantity = Math.max(donorAvailableQuantity - donorRetainedQuantity, 0);
 
@@ -39,9 +49,8 @@ public record RebalanceCalculation(
         return Optional.of(new RebalanceCalculation(receiverShortageQuantity, donorTransferableQuantity, recommendedQuantity));
     }
 
-    private static int ceilToUnits(BigDecimal averageDailySales, int coverageDays) {
-        return averageDailySales.multiply(BigDecimal.valueOf(coverageDays))
-                .setScale(0, RoundingMode.CEILING)
-                .intValueExact();
+    /** Exact ceiling division for non-negative numerator and positive denominator. */
+    private static int ceilDiv(int numerator, int denominator) {
+        return (numerator + denominator - 1) / denominator;
     }
 }

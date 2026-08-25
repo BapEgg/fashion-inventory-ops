@@ -72,7 +72,7 @@ public class InventoryAnalysisTasklet implements Tasklet {
                     snapshot.getOnHandQuantity(), snapshot.getReservedQuantity(), soldInWindow);
             SpInventoryMetric metric = metricRepository.save(
                     new SpInventoryMetric(analysisRun, snapshot, calculation));
-            entries.add(new MetricEntry(metric, calculation, snapshot.getSkuId(), snapshot.getStoreId()));
+            entries.add(new MetricEntry(metric, calculation, soldInWindow, snapshot.getSkuId(), snapshot.getStoreId()));
         }
 
         createRecommendations(entries);
@@ -110,8 +110,8 @@ public class InventoryAnalysisTasklet implements Tasklet {
                         continue;
                     }
                     RebalanceCalculation.calculate(
-                            receiver.calculation().averageDailySales(), receiver.calculation().availableQuantity(),
-                            donor.calculation().averageDailySales(), donor.calculation().availableQuantity()
+                            receiver.soldQuantityInWindow(), receiver.calculation().availableQuantity(),
+                            donor.soldQuantityInWindow(), donor.calculation().availableQuantity()
                     ).ifPresent(calc -> recommendationRepository.save(
                             new SpRebalanceRecommendation(receiver.metric(), donor.metric(), calc)));
                 }
@@ -119,6 +119,11 @@ public class InventoryAnalysisTasklet implements Tasklet {
         }
     }
 
-    private record MetricEntry(SpInventoryMetric metric, InventoryMetricCalculation calculation, String skuId, String storeId) {
+    private record MetricEntry(
+            SpInventoryMetric metric,
+            InventoryMetricCalculation calculation,
+            int soldQuantityInWindow,
+            String skuId,
+            String storeId) {
     }
 }

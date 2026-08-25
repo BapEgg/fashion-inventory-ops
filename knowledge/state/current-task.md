@@ -1,6 +1,6 @@
 # Current Task
 
-Status: In progress — Implementation order 1-4 complete and Oracle-verified; 5-8 remain<br>
+Status: In progress — Order 1-4 complete, Oracle-verified, and the review defect is fixed; ready for order 5<br>
 Current role: Claude implementation<br>
 Last updated: 2026-08-25
 
@@ -49,7 +49,16 @@ Read only:
 
 ## Blocking information
 
-There is no Oracle infrastructure blocker. The local container, schema and Seed are verified. LLM provider settings remain intentionally absent and do not block the deterministic MVP.
+Resolved: Codex review found a conflict with `business-rules.md` section 2 (transfer
+calculations must use the unrounded sales rate, but `RebalanceCalculation` reused a
+10-decimal `averageDailySales` across the `ceil` boundary). `RebalanceCalculation.calculate`
+now takes the raw integer 7-day sold quantity and computes the target/retained quantities
+with an exact integer ceiling division, with no BigDecimal rounding at that boundary.
+Regression tests added; Golden Scenario re-verified against Oracle unchanged (25-unit
+Hongdae → Gangnam recommendation). See `implemented-state.md` for detail.
+
+There is no Oracle infrastructure blocker. The local container, schema and Seed are verified.
+LLM provider settings remain intentionally absent and do not block the deterministic MVP.
 
 ## Progress note for order 5
 

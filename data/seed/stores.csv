@@ -1,4 +1,4 @@
 store_id,store_name,region
-STORE-GANGNAM,Gangnam Flagship,SEOUL
-STORE-HONGDAE,Hongdae Store,SEOUL
-STORE-SEONGSU,Seongsu Store,SEOUL
+STORE-GANGNAM,강남 플래그십,서울
+STORE-HONGDAE,홍대점,서울
+STORE-SEONGSU,성수점,서울

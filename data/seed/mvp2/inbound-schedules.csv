@@ -1,0 +1,2 @@
+inbound_reference,store_id,sku_id,quantity,eta_at,inbound_status,input_snapshot_version,source_type
+INBOUND-MVP2-GS05,STORE-MVP2-RECEIVER-A,SKU-MVP2-GS05-INBOUND,50,2026-10-01T09:00:00+09:00,CONFIRMED,MVP-2-GS-V1,SYNTHETIC

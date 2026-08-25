@@ -1,127 +1,296 @@
-# StockPilot Project Specification
+# StockPilot Product Specification
 
-Status: Approved MVP Baseline
+Status: `APPROVED MVP-2 DEMO DESIGN` — Phase 1 입력·Oracle 완료
+Approved: 2026-08-25
 Last updated: 2026-08-25
 
-## 1. Product Definition
+> 이 문서의 수량 기준, 기간, 분류 임계값과 이동 정책은 버전 관리되는
+> `ASSUMPTION`이다. 실제 F&F 정책이나 검증된 산업 표준이 아니다. 실제 기업
+> 데이터는 사용하지 않으며 데모 입력은 `SYNTHETIC`으로 구분한다.
 
-StockPilot is a fashion inventory exception detection and inter-store rebalancing decision-support system. It identifies the inventory situations that need attention first and presents deterministic transfer alternatives with auditable reasons.
+## 1. 전환 목적과 현재 기준선
 
-It does not execute physical inventory transfers and is not an ERP replacement.
+StockPilot은 미래 수요를 정확히 예언하거나 재고 이동을 자동 집행하는 제품이
+아니다. 많은 SKU–매장 조합 중 오늘 사람이 확인할 예외를 줄이고, 수요 신호의
+성격·데이터 신뢰도·입고 예정·이동 제약과 복수 수량 시나리오를 한 흐름에서
+비교하게 하는 **재고 예외 검토 및 재배분 의사결정 워크벤치**다.
 
-## 2. Users and Problem
+현재 저장소에는 `MVP-1` Vertical Slice와 MVP-2 Phase 1이 실제 구현돼 있다.
+Oracle/Flyway `V1`~`V8`, 7일 판매 기반 Batch 분석, REST API, React 목록·상세·시뮬레이션·
+결정 화면, AI-disabled 설명 경계와 Oracle 통합 테스트를 보존한다. `MVP-2`는
+이 검증된 기준선을 폐기하지 않고 28일 수요 신호와 실행 제약을 추가하는 다음
+설계다. 2026-08-25 사용자 승인을 받아 구현 기준선으로 확정됐고 입력 계약,
+물리 Schema와 GS-01~GS-06 Seed까지 구현됐다. 28일 Java 계산, Batch, API와
+화면은 아직 구현되지 않았다.
 
-### Primary users
+## 2. 제품 정의
 
-- Merchandise and inventory operations staff
-- Store allocation and replenishment staff
-- Operators reviewing stockout and overstock exceptions across many SKU-store combinations
+| 항목 | MVP-2 정의 |
+|---|---|
+| 제품 유형 | 재고 예외 검토 및 재배분 의사결정 워크벤치 |
+| 핵심 사용자 | 본사 재고 배분·보충 담당자(Allocator/Replenishment Planner) |
+| 자동화 범위 | 데이터 적재, 검토 대상 축소, 근거 계산, 제약 확인, 시나리오 비교, ERP 이동지시 초안 생성 |
+| 사람의 책임 | 맥락 확인, 최종 수량 수정, 보류·승인·거절 |
+| 외부 시스템 책임 | ERP/WMS/TMS의 실제 이동지시 접수, 피킹·출고·운송·입고 |
+| AI 책임 | Java가 계산한 사실의 선택적 설명과 허용된 조회 보조 |
 
-### User problem
+포트폴리오 표현은 다음 경계를 지킨다.
 
-The user cannot efficiently inspect every SKU-store record. They need a prioritized exception queue, a feasible donor store for the same SKU, and a clear comparison of inventory coverage before and after a proposed transfer.
+- 품절 **예측**이 아니라 품절 위험 **신호 탐지**
+- 최적 이동량이 아니라 복수 재배분 **시나리오 비교**
+- 판단 자동화가 아니라 **판단 준비 자동화**
+- 물류 자동화가 아니라 **ERP 이동지시 초안**까지의 의사결정 지원
 
-## 3. MVP Capabilities
+## 3. 문제와 업무 변화
 
-1. Load version-controlled synthetic product, store, inventory and sales data into Oracle.
-2. Run a Batch analysis for a specified analysis date.
-3. Classify SKU-store records as stockout risk, overstock or normal.
-4. Rank actionable exceptions and find a donor store for the same SKU.
-5. Calculate a recommended transfer quantity using explicit Java rules.
-6. Simulate a user-adjusted quantity without changing persisted inventory.
-7. Persist approval or rejection, reason, actor label and timestamp.
-8. Optionally explain the Java result through an LLM without delegating calculation or state changes.
-9. Verify domain calculations with unit tests and the primary path with Oracle integration testing.
+패션 리테일은 상품·색상·사이즈와 매장 조합이 많아 담당자가 모든 재고 위치를
+같은 깊이로 검토하기 어렵다. 단순 기간 평균은 하루의 대량구매를 반복수요로
+오인할 수 있고, 품절 때문에 판매가 0이 된 상품을 무수요로 오인할 수 있다.
+담당자는 판매 추이 외에도 거래 건수, 행사·가격 변경, 입고 예정, 예약·진행 중
+이동, 재고 소유권, 경로와 리드타임을 다시 대조해야 한다.
 
-## 4. Golden Scenario
+### AS-IS 업무 가설
 
-Analysis date: `2026-08-25`
+1. ERP·BI에서 저재고·과잉재고 후보를 찾는다.
+2. 판매 추이, 거래 특성, 행사·할인, 입고 예정과 예약재고를 별도로 조회한다.
+3. 급증이 반복수요인지 단발성인지 판단한다.
+4. 같은 SKU의 공급 매장과 이동 가능 여부를 확인한다.
+5. Excel 등으로 양쪽 매장의 이동 후 재고를 계산한다.
+6. ERP·메일·메신저에 요청과 사유를 남긴다.
 
-- `STORE-GANGNAM` has five available units and sold 28 units during the previous seven days.
-- `STORE-HONGDAE` has 40 available units and sold four units during the same period.
-- `STORE-SEONGSU` provides a normal comparison record.
-- The analysis must identify Gangnam as stockout risk and Hongdae as overstock for `SKU-CAP-BLACK-FREE`.
-- A positive Hongdae-to-Gangnam transfer recommendation must be produced.
-- A user can change the quantity, compare before/after coverage, then approve or reject it with a reason.
+### TO-BE
 
-The source records are in `data/seed`. Expected numeric results follow `business-rules.md`.
+```text
+데이터 품질·관측 검사
+  → 수요 신호·신뢰도 분류
+  → 재고 예외 우선순위화
+  → 입고·소유권·경로·리드타임 제약 확인
+  → 무조치·보수적·기준·공격적·수동 시나리오 비교
+  → 담당자 보류·승인·거절
+  → ERP 이동지시 초안
+```
 
-## 5. Technical Architecture
+## 4. 사용자와 시스템 경계
+
+| 구분 | 역할 | StockPilot에서 하는 일 |
+|---|---|---|
+| 핵심 사용자 | 본사 재고 배분·보충 담당자 | 예외 검토, 시나리오 비교, 수량 수정, 보류·승인·거절 |
+| 업무 협업자 | MD·영업·상품운영 담당자 | 행사, 가격, 상품 생애주기 맥락 제공 |
+| 실행 협업자 | 출발·도착 매장, 물류센터 | 승인된 외부 이동지시에 따른 실물 처리 |
+| 외부 시스템 | ERP·WMS·TMS | 원천 데이터 제공, 이동지시 접수, 물류 상태 관리 |
+| 시스템 관리자 | ERP·IT 운영자 | Batch, 입력 스냅샷, 규칙 버전과 연동 상태 관리 |
+
+MVP-2 데모는 동일 재고 소유권이거나 경로가 명시적으로 허용된 국내 매장 간
+이동만 다룬다. 해외 법인, 세금·통관·정산이 필요한 이동, 실시간 배송 위치와
+ETA 추적은 제외한다. 실제 배송 과정은 구현하지 않고 경로별 리드타임만
+계산한다. 재고 정확도가 완벽하다고 가정하지 않고 품질 경고로 노출한다.
+
+## 5. MVP-2 범위
+
+### 필수 기능
+
+1. 28일 일별 판매·재고와 상품, 매장, 거래, 이벤트, 가격, 입고, 진행 중 이동,
+   경로 및 매장–SKU 정책을 버전 있는 입력으로 적재한다.
+2. 데이터 최신성·누락·품절 관측 여부를 검사한다.
+3. 하나의 주 수요 신호와 별도의 다중 품질 플래그, 신뢰도를 계산한다.
+4. 재고 예외를 탐지하고 설명 가능한 정렬 키로 검토 순서를 만든다.
+5. 모든 공급 후보에 대해 통과 여부와 탈락 사유를 제공한다.
+6. 무조치·보수적·기준·공격적·수동 시나리오에서 양쪽 매장의 결과를 비교한다.
+7. 보류·승인·거절, 수정 수량, 사유와 분석·입력·규칙 버전을 감사 이력으로 남긴다.
+8. 승인 트랜잭션에서 최신 입력과 공유 공급 가능량을 재검증하고 ERP 이동지시
+   초안을 생성한다. 실제 재고나 외부 ERP는 변경하지 않는다.
+9. AI가 비활성·미설정이어도 위 핵심 흐름이 완결된다.
+
+### 명시적 비목표
+
+- 완벽한 수요예측, 품절 확률 또는 전체 네트워크 최적해 보장
+- 원인 불명 급증의 원인을 AI가 단정하는 기능
+- 자동 승인, 실제 재고 차감 또는 실제 이동 실행
+- WMS/TMS 수준의 배송 위치·허브 ETA 추적
+- 해외 법인·가맹점 간 회계·정산 처리
+- Oracle Retail, ERP, WMS 또는 TMS 대체
+- LLM이 수량·우선순위·실행 가능 여부·결정 상태를 생성하는 기능
+- 인증, Redis, Kafka 또는 별도 서버의 선제적 추가
+
+## 6. 입력 데이터 계약
+
+| 데이터 | 최소 필드 | 목적 |
+|---|---|---|
+| 상품 | SKU, 출시일, 시즌, 판매상태 | 신상품·시즌 종료 구분 |
+| 매장 | 매장 유형, 재고 소유 주체, 이동 권역 | 비교 가능한 매장 제한 |
+| 일별 판매 | 수량, 거래 건수, 거래당 최대수량, 평균 판매가 | 반복수요·단일 대량거래·가격 변화 구분 |
+| 일별 재고 | 장부·예약재고, 기준시각, 품절 여부 | 판매 0의 의미와 최신성 확인 |
+| 수요 이벤트 | ID, 유형, 기간, 매장·SKU, low/base/high uplift | 알려진 과거·계획 이벤트 반영 |
+| 입고 예정 | 수량, ETA, 상태 | 중복 보충 방지 |
+| 진행 중 이동 | 출발·도착, 수량, 상태, ETA | 동일 재고 중복 배분 방지 |
+| 매장 간 경로 | 허용 여부, 리드타임, 최소수량, 포장 배수, 최대수량 | 실행 불가능 후보 제거 |
+| 매장–SKU 정책 | 최소 진열량, 안전재고, 최대 수용량, 목표·보존 일수 | 양쪽 매장의 보호 조건 |
+
+고객 개인정보, SNS·인플루언서 자동 추적, 날씨, 이미지 임베딩, 차량 GPS는
+MVP-2 입력에 포함하지 않는다. 없는 데이터의 원인을 생성형 AI로 추측하지 않는다.
+
+## 7. 목표 아키텍처
 
 ```mermaid
 flowchart LR
-    Seed[Synthetic CSV Seed] --> Oracle[(Oracle Database)]
-    Oracle --> Batch[Spring Batch Analysis]
-    Batch --> Rules[Deterministic Java Rules]
-    Rules --> API[Spring REST API]
-    API --> UI[React Operations UI]
-    Rules --> Explain[Optional LLM Explanation]
-    Explain --> API
+    Source[합성 ERP·POS·WMS 입력] --> Oracle[(Oracle)]
+    Oracle --> Batch[Spring Batch]
+    Batch --> Quality[품질·관측 검사]
+    Quality --> Signal[수요 신호·신뢰도]
+    Signal --> Exception[재고 예외·우선순위]
+    Exception --> Constraint[입고·경로·소유권 검증]
+    Constraint --> Scenario[복수 시나리오]
+    Scenario --> API[Spring REST API]
+    API --> UI[React 워크벤치]
+    UI --> Decision[보류·승인·거절]
+    Decision --> Draft[ERP 이동지시 초안]
+    Scenario -. 계산 사실만 .-> Explain[선택적 AI 설명]
+    Explain -. 수량·상태 변경 금지 .-> API
 ```
 
-### Backend
+현재 Tasklet의 전체 메모리 적재와 매장–SKU별 반복 판매 조회는 기존 합성
+데이터에는 충분하지만 대규모 처리로 주장하지 않는다. MVP-2 구현에서는 Oracle
+집계로 N+1을 제거하고 SKU 또는 페이지 단위 Chunk 처리, Batch insert, 명시적
+실패 상태를 검토한다. 실행 키는
+`(analysisDate, inputSnapshotVersion, ruleVersion)`이며 새 입력 버전은 과거
+결과를 덮어쓰지 않는다.
 
-- Java 21 and Spring Boot 4.1
-- Spring Web MVC for REST endpoints
-- Spring Data JPA for transactional persistence
-- Spring Batch for repeatable analysis execution
-- Flyway for versioned Oracle schema and Seed migration
-- Bean Validation for API boundary validation
-- JUnit 5 for domain and integration tests
+## 8. 목표 API
 
-### Frontend
+기존 MVP-1 endpoint는 구현 기준선으로 보존한다. 아래 계약은 승인된 MVP-2
+목표이며, Phase 4에서 기존 호환성을 지키는 구체 DTO와 오류 계약으로 구현한다.
 
-- React 19, TypeScript 5.9 and Vite 8
-- Two primary views: exception list and exception detail/simulation
-- No client-side secret or business-rule calculation
+| Endpoint | 행위 |
+|---|---|
+| `POST /api/analyses` | 분석일·입력 스냅샷 버전으로 Batch 시작 |
+| `GET /api/analyses/{analysisRunId}` | 실행 상태와 입력·규칙 버전 조회 |
+| `GET /api/inventory-exceptions` | 우선순위·신호·신뢰도·매장·SKU 필터 목록 |
+| `GET /api/inventory-exceptions/{metricId}` | 28일 근거, 품질 플래그, 입고, 후보와 탈락 사유 상세 |
+| `POST /api/rebalancing-simulations` | 지정 시나리오 또는 수동 수량을 부작용 없이 계산 |
+| `POST /api/rebalancing-decisions` | 보류·승인·거절과 낙관적 버전 저장 |
+| `GET /api/rebalancing-decisions/{recommendationId}` | 결정 이력과 이동지시 초안 조회 |
+| `POST /api/inventory-exceptions/{metricId}/explanation` | 선택적 설명; AI 비활성도 정상 응답 |
 
-### Persistence
+승인은 결정 저장과 이동지시 초안 생성을 하나의 트랜잭션으로 처리하지만 실제
+재고나 외부 ERP는 변경하지 않는다.
 
-- Oracle is the primary database and the integration-verification target.
-- H2 is not used as a substitute for Oracle behavior.
-- Oracle Database Free 23ai runs as the only Dockerized infrastructure service through the community-maintained `gvenzl/oracle-free:23.26.2-slim-faststart` image.
-- Backend and Frontend run directly on the host for fast local debugging.
-- Flyway owns the application schema, synthetic Seed and Spring Batch metadata tables.
-- Oracle connection details and optional LLM settings are loaded from one ignored root `.env` file.
-- Any future server dependency must be added as a pinned Docker Compose service; no additional server is required by the approved MVP.
+## 9. 목표 화면
 
-## 6. Planned API Surface
+### 예외 목록
 
-The implementation may refine names without expanding behavior.
+- 심각도, 수요 신호, 신뢰도, 품질 경고 배지
+- 현재재고, 입고 예정, 예상 부족량, 실행 가능한 공급 후보 유무
+- 분석 기준시각, 입력 스냅샷 버전, 규칙 버전
+- 우선순위·매장·상품·신호 유형 필터
 
-- `POST /api/analyses`: start analysis for an analysis date
-- `GET /api/inventory-exceptions`: list analyzed exceptions
-- `GET /api/inventory-exceptions/{id}`: retrieve calculation evidence and recommendation
-- `POST /api/rebalancing-simulations`: compare a proposed quantity without persistence
-- `POST /api/rebalancing-decisions`: approve or reject a recommendation with reason
-- `POST /api/inventory-exceptions/{id}/explanation`: optional natural-language explanation
+### 예외 상세
 
-## 7. Data and Audit Requirements
+- 28일 판매·재고 추이와 거래 건수·최대 거래수량
+- 행사·프로모션·가격 변경, 품절 관측과 데이터 누락 표시
+- 분류 근거와 사용한 임계값
+- 통과한 공급 후보와 탈락 후보별 reason code
 
-- Every demo operational record is classified as `SYNTHETIC`.
-- Every threshold or target value is classified as `ASSUMPTION`.
-- Analysis results record the analysis date and rule version.
-- Decisions record recommendation identity, selected quantity, status, reason, actor label and timestamp.
-- A simulation does not mutate source inventory or an existing decision.
+### 시나리오와 결정
 
-## 8. Acceptance Criteria
+열은 무조치·보수적·기준·공격적·수동으로 구성한다. 각 열에 이동수량,
+도착·출발 매장의 이동 전후 재고·커버리지·위험, 입고 반영 여부, 리드타임,
+예상 도착일, 제약 경고와 신뢰도를 함께 표시한다. 결정 영역은 보류·승인·거절,
+수정 사유, 최신 재검증 결과와 생성된 이동지시 초안 ID를 제공한다.
 
-The MVP is complete only when all conditions below are demonstrated.
+### 화면 고지
 
-- A clean Oracle schema can be created and populated from version-controlled files.
-- Re-running the same Batch analysis does not create duplicate logical results.
-- The Golden Scenario produces the classifications and transfer direction defined above.
-- Recommendation and simulation results are derived exclusively from the approved Java rules.
-- Approval and rejection require a non-blank reason and are persisted transactionally.
-- The application starts and core APIs work with AI disabled and without an API Key.
-- AI output, when enabled, cannot change quantities or decision status.
-- Backend tests and build pass; Frontend TypeScript build passes.
-- README commands are executed and corrected if they differ from reality.
+모든 MVP-2 화면의 지속적으로 보이는 영역에 다음 의미를 명시한다.
 
-## 9. Delivery Workflow
+```text
+SYNTHETIC 데이터 · ASSUMPTION 데모 정책 · 실제 F&F 정책 또는 검증된 산업 표준 아님
+```
 
-1. Codex plans and specifies.
-2. Claude implements the approved slice.
-3. Codex reviews tests and behavior first, directly fixing only minor defects.
+수요 신호, 신뢰도, 임계값과 시나리오 옆에서도 `ASSUMPTION`임을 식별할 수
+있어야 한다. 포트폴리오 설명, tooltip, AI 설명도 이를 실제 기업 정책이나 검증된
+산업 표준으로 표현하지 않는다.
 
-Commit and push are user-controlled unless explicitly requested.
+## 10. 검증용 합성 시나리오
+
+| ID | 상황 | 기대 결과 |
+|---|---|---|
+| `GS-01` | 4주 안정 수요 매장과 여유 공급 매장 | `STABLE_REPEAT`, 품절 위험, 3개 수량 시나리오 |
+| `GS-02` | 등록 프로모션 상승과 정량 uplift | `KNOWN_EVENT`, 이벤트 기반 3개 시나리오 |
+| `GS-03` | 하루 판매 대부분이 한 건의 대량구매 | `UNEXPLAINED_SPIKE`, 단일 추천 금지, 원인 확인 |
+| `GS-04` | 품절 때문에 판매 0인 기간 | `OOS_CENSORED`, 무수요·과잉 오분류 방지 |
+| `GS-05` | 도착 전 입고가 부족수량 충족 | `INBOUND_ALREADY_COVERS`, 점간 이동 제외 |
+| `GS-06` | 재고는 있지만 소유권·경로·리드타임 위반 | 후보 탈락과 정확한 사유 코드 |
+
+회귀 검증에는 같은 공급 매장의 동시 승인 초과 방지, 신상품의
+`DATA_INSUFFICIENT` 처리, AI-disabled 전체 흐름을 추가한다. 기존
+`2026-08-25` MVP-1 Golden Scenario는 계산 회귀 기준으로 삭제하지 않는다.
+
+## 11. 완료 조건
+
+### 제품
+
+- 사용자가 모든 SKU–매장을 전수 확인하지 않고 우선순위 예외를 받는다.
+- 각 예외에 수요 유형, 신뢰도, 품질과 계산 근거가 있다.
+- 원인 불명 급증과 데이터 부족은 확정 수요로 보이지 않는다.
+- 후보는 모든 제약을 통과하거나 탈락 사유를 제공한다.
+- 무조치와 복수 수량에서 양쪽 매장의 결과를 비교한다.
+- 최종 수량과 실행 여부는 사람만 결정한다.
+
+### 데이터·계산
+
+- 동일 입력·규칙은 동일 결과를 내고 분석일·입력·규칙 버전을 추적한다.
+- 입고 예정과 진행 중 이동을 반영하며 공유 공급 재고를 초과 승인하지 않는다.
+- 백분위, 반올림, `ceil`, 포장 배수 적용 순서가 순수 Java 테스트로 고정된다.
+- 낮은 신뢰도 유형이 하나의 정답 수량처럼 표현되지 않는다.
+
+### 시스템
+
+- 기존 `V1`~`V5`를 수정하지 않고 깨끗한 Oracle에 새 Migration을 적용한다.
+- Batch 재실행·실패 복구와 입력 버전별 재분석을 실제 Oracle에서 검증한다.
+- 승인과 이동지시 초안 생성이 한 트랜잭션이며 오래된·중복 승인은 거부된다.
+- AI 없이 Backend·Frontend 핵심 흐름이 완결된다.
+- 실행하지 않은 테스트나 미구현 기능을 완료로 표시하지 않는다.
+
+## 12. 확정된 MVP-2 데모 결정
+
+다음 설계는 2026-08-25 사용자 승인으로 확정됐다. 실제 기업 정책이 아니라
+MVP-2 데모에만 적용되는 버전 관리 `ASSUMPTION`이다.
+
+| 선택 | 확정안 | 제외한 대안/영향 |
+|---|---|---|
+| 대상 매장 | 동일 소유권 또는 명시적 허용 경로의 국내 매장 | 직영점만 제한하면 소유권 모델과 Seed가 단순해짐 |
+| 이동 방식 | 경로별 리드타임만 모델링, 실제 운송 방식은 외부 책임 | 물류센터 경유를 모델링하면 노드·구간·ETA 계약이 추가됨 |
+| 이벤트 uplift | low/base/high 합성 입력값 | 과거 이벤트 추정은 별도 분석 모델과 검증이 필요함 |
+| `VARIABLE` 시나리오 | 비교는 제공하되 추천·자동 선택 없음 | 수량 비교 자체를 숨기면 UI와 API가 단순해짐 |
+| 이동지시 초안 | 별도 `SP_TRANSFER_DRAFT` | 외부 ERP payload 로그만 두면 내부 상태 추적이 약해짐 |
+| 후보 모델 | 기존 `SP_REBALANCE_RECOMMENDATION`을 호환 확장하고 Scenario를 자식으로 추가 | 신규 Candidate를 분리하면 의미는 명확하지만 API·데이터 이관이 커짐 |
+
+## 13. 구현 순서
+
+1. **Phase 0 — 문서 재기준선(완료):** 제품·규칙·데이터 모델·README·상태
+   문서를 일치시키고 사용자 승인을 받았다.
+2. **Phase 1 — 입력과 Oracle(완료):** `V6` Schema, `V7` SYNTHETIC Seed,
+   `V8` Comment를 추가하고 여섯 시나리오 입력을 Oracle에서 재현했다.
+3. **Phase 2 — 순수 Java 규칙:** 신호·품질·예외·후보·시나리오·승인 검증을
+   Spring/JPA와 독립된 테스트로 고정한다.
+4. **Phase 3 — Batch:** 28일 집계, N+1 제거, 입력 버전 멱등성과 실패 원자성을
+   검증하고 합성 규모 성능을 실제 측정한다.
+5. **Phase 4 — REST API:** 목록·상세·시뮬레이션·결정·초안과 동시성 오류를
+   Golden Scenario로 검증한다.
+6. **Phase 5 — React:** 신뢰도·품질·양쪽 매장 결과를 계산 중복 없이 표시한다.
+7. **Phase 6 — 선택적 AI:** 구조화된 계산 사실만 설명하며 provider 장애가 핵심
+   흐름을 막지 않게 한다. 실제 정책 문서가 있을 때만 RAG를 검토한다.
+8. **Phase 7 — 검증:** Backend, Oracle, Frontend, Batch 측정과 README 명령을
+   재실행하고 구현/계획 상태를 대조한다.
+
+**현재 인계 지점:** Phase 0 설계 승인까지 완료됐다. 다음 역할은 확정된 문서
+범위 안에서 Phase 1을 구현하며, 이 승인 기록 자체는 아직 MVP-2가 구현됐다는
+표시로 사용하지 않는다.
+
+## 14. 공개 근거와 한계
+
+- [F&F 공개 공시](https://kind.krx.co.kr/external/2025/11/14/002884/20251114006635/11013.htm)는 국내 대리점 운영과 상품 로테이션이라는 업무 가설의 공개 근거다.
+- [Oracle Retail 재배분 workflow](https://docs.oracle.com/en/industries/retail/retail-inventory-planning-optimization-cloud/26.1.101.0/ipoio/workflow1.htm)는 Batch 결과를 사람이 검토·수정·승인하는 흐름의 참고다.
+- [Oracle Retail 매장 이동](https://docs.oracle.com/en/industries/retail/store-inventory-op-cloud/latest/rsoug/transfers.htm)은 요청·승인·출고·입고 경계의 참고다.
+
+이 자료들은 업계 타당성의 근거일 뿐 F&F 내부 시스템이나 절차가 동일하다는
+증거가 아니다.

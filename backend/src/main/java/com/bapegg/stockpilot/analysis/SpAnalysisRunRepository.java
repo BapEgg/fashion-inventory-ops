@@ -8,4 +8,7 @@ import java.util.Optional;
 public interface SpAnalysisRunRepository extends JpaRepository<SpAnalysisRun, Long> {
 
     Optional<SpAnalysisRun> findByAnalysisDateAndRuleVersion(LocalDate analysisDate, String ruleVersion);
+
+    Optional<SpAnalysisRun> findTopByRuleVersionAndRunStatusOrderByAnalysisDateDesc(
+            String ruleVersion, AnalysisRunStatus runStatus);
 }

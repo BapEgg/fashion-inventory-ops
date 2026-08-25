@@ -1,0 +1,28 @@
+# IDE and OS
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Java / Gradle
+.gradle/
+**/.gradle-user-home/
+**/build/
+out/
+
+# Node / Vite
+node_modules/
+**/node_modules/
+**/dist/
+*.tsbuildinfo
+
+# Local-only configuration and secrets
+backend/src/main/resources/application-local.yml
+.env
+.env.*
+!.env.example
+
+# Logs and temporary files
+*.log
+tmp/
+.tmp/

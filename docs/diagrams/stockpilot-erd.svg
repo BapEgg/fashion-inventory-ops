@@ -1,0 +1,184 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="900" viewBox="0 0 1500 900" role="img" aria-labelledby="title description">
+  <title id="title">StockPilot 도메인 ERD</title>
+  <desc id="description">기준 및 원본 데이터, 분석 결과, 의사결정 영역의 여덟 개 테이블 관계도</desc>
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+    </marker>
+    <style>
+      .title { font: 700 28px Arial, 'Noto Sans KR', sans-serif; fill: #0f172a; }
+      .subtitle { font: 400 14px Arial, 'Noto Sans KR', sans-serif; fill: #64748b; }
+      .zone-title { font: 700 17px Arial, 'Noto Sans KR', sans-serif; fill: #334155; }
+      .entity-title { font: 700 16px Arial, 'Noto Sans KR', sans-serif; fill: #ffffff; }
+      .entity-name { font: 600 11px Consolas, monospace; fill: #e2e8f0; }
+      .field { font: 13px Consolas, 'Noto Sans KR', monospace; fill: #334155; }
+      .field-key { font: 700 13px Consolas, 'Noto Sans KR', monospace; fill: #0f172a; }
+      .relation { fill: none; stroke: #64748b; stroke-width: 2; marker-end: url(#arrow); }
+      .relation-label { font: 700 11px Arial, 'Noto Sans KR', sans-serif; fill: #475569; paint-order: stroke; stroke: #ffffff; stroke-width: 4px; }
+      .legend { font: 12px Arial, 'Noto Sans KR', sans-serif; fill: #475569; }
+    </style>
+  </defs>
+
+  <rect width="1500" height="900" fill="#ffffff"/>
+  <text x="32" y="38" class="title">StockPilot 도메인 ERD</text>
+  <text x="1468" y="37" class="subtitle" text-anchor="end">원본 근거 → 분석 결과 → 재배분 의사결정</text>
+
+  <rect x="25" y="60" width="710" height="790" rx="18" fill="#eff6ff" stroke="#bfdbfe"/>
+  <rect x="755" y="60" width="350" height="790" rx="18" fill="#f5f3ff" stroke="#ddd6fe"/>
+  <rect x="1125" y="60" width="350" height="790" rx="18" fill="#ecfdf5" stroke="#a7f3d0"/>
+  <text x="48" y="91" class="zone-title">1. 기준·원본 데이터</text>
+  <text x="778" y="91" class="zone-title">2. Batch 분석 결과</text>
+  <text x="1148" y="91" class="zone-title">3. 담당자 의사결정</text>
+
+  <!-- Relationships -->
+  <path class="relation" d="M 325 170 H 375"/>
+  <text x="350" y="160" class="relation-label" text-anchor="middle">1 : N</text>
+  <path class="relation" d="M 325 225 H 348 V 515 H 375"/>
+  <text x="348" y="368" class="relation-label" text-anchor="middle">1 : N</text>
+  <path class="relation" d="M 325 493 H 346 V 300 H 375"/>
+  <text x="346" y="408" class="relation-label" text-anchor="middle">1 : N</text>
+  <path class="relation" d="M 325 540 H 375"/>
+  <text x="350" y="530" class="relation-label" text-anchor="middle">1 : N</text>
+  <path class="relation" d="M 695 245 H 730 V 555 H 775"/>
+  <text x="730" y="420" class="relation-label" text-anchor="middle">1 : N</text>
+  <path class="relation" d="M 925 320 V 405"/>
+  <text x="938" y="367" class="relation-label">1 : N</text>
+  <path class="relation" d="M 1075 525 H 1110 V 250 H 1145"/>
+  <path class="relation" d="M 1075 590 H 1095 V 320 H 1145" stroke-dasharray="6 5"/>
+  <path class="relation" d="M 1295 405 V 495"/>
+  <text x="1308" y="455" class="relation-label">1 : 0..1</text>
+
+  <!-- Product -->
+  <g filter="url(#shadow)">
+    <rect x="45" y="115" width="280" height="205" rx="10" fill="#ffffff" stroke="#93c5fd"/>
+    <path d="M 45 125 Q 45 115 55 115 H 315 Q 325 115 325 125 V 164 H 45 Z" fill="#2563eb"/>
+  </g>
+  <text x="61" y="137" class="entity-title">상품</text>
+  <text x="61" y="154" class="entity-name">SP_PRODUCT</text>
+  <text x="61" y="187" class="field-key">PK  sku_id</text>
+  <text x="61" y="211" class="field">    product_name</text>
+  <text x="61" y="235" class="field">    category</text>
+  <text x="61" y="259" class="field">    color</text>
+  <text x="61" y="283" class="field">    size_name</text>
+  <text x="61" y="307" class="field">    created_at</text>
+
+  <!-- Store -->
+  <g filter="url(#shadow)">
+    <rect x="45" y="420" width="280" height="170" rx="10" fill="#ffffff" stroke="#93c5fd"/>
+    <path d="M 45 430 Q 45 420 55 420 H 315 Q 325 420 325 430 V 469 H 45 Z" fill="#2563eb"/>
+  </g>
+  <text x="61" y="442" class="entity-title">매장</text>
+  <text x="61" y="459" class="entity-name">SP_STORE</text>
+  <text x="61" y="492" class="field-key">PK  store_id</text>
+  <text x="61" y="516" class="field">    store_name</text>
+  <text x="61" y="540" class="field">    region</text>
+  <text x="61" y="564" class="field">    created_at</text>
+
+  <!-- Inventory -->
+  <g filter="url(#shadow)">
+    <rect x="375" y="105" width="320" height="285" rx="10" fill="#ffffff" stroke="#93c5fd"/>
+    <path d="M 375 115 Q 375 105 385 105 H 685 Q 695 105 695 115 V 154 H 375 Z" fill="#0284c7"/>
+  </g>
+  <text x="391" y="127" class="entity-title">재고 스냅샷</text>
+  <text x="391" y="144" class="entity-name">SP_INVENTORY_SNAPSHOT</text>
+  <text x="391" y="177" class="field-key">PK  inventory_snapshot_id</text>
+  <text x="391" y="201" class="field">    snapshot_date</text>
+  <text x="391" y="225" class="field-key">FK  store_id</text>
+  <text x="391" y="249" class="field-key">FK  sku_id</text>
+  <text x="391" y="273" class="field">    on_hand_quantity</text>
+  <text x="391" y="297" class="field">    reserved_quantity</text>
+  <text x="391" y="321" class="field">    source_type</text>
+  <text x="391" y="345" class="field">    created_at</text>
+  <text x="391" y="374" class="subtitle">UQ: snapshot_date + store_id + sku_id</text>
+
+  <!-- Sale -->
+  <g filter="url(#shadow)">
+    <rect x="375" y="430" width="320" height="260" rx="10" fill="#ffffff" stroke="#93c5fd"/>
+    <path d="M 375 440 Q 375 430 385 430 H 685 Q 695 430 695 440 V 479 H 375 Z" fill="#0284c7"/>
+  </g>
+  <text x="391" y="452" class="entity-title">일판매</text>
+  <text x="391" y="469" class="entity-name">SP_DAILY_SALE</text>
+  <text x="391" y="502" class="field-key">PK  daily_sale_id</text>
+  <text x="391" y="526" class="field">    sales_date</text>
+  <text x="391" y="550" class="field-key">FK  store_id</text>
+  <text x="391" y="574" class="field-key">FK  sku_id</text>
+  <text x="391" y="598" class="field">    sold_quantity</text>
+  <text x="391" y="622" class="field">    source_type</text>
+  <text x="391" y="646" class="field">    created_at</text>
+  <text x="391" y="675" class="subtitle">UQ: sales_date + store_id + sku_id</text>
+
+  <!-- Analysis Run -->
+  <g filter="url(#shadow)">
+    <rect x="775" y="110" width="300" height="210" rx="10" fill="#ffffff" stroke="#c4b5fd"/>
+    <path d="M 775 120 Q 775 110 785 110 H 1065 Q 1075 110 1075 120 V 159 H 775 Z" fill="#7c3aed"/>
+  </g>
+  <text x="791" y="132" class="entity-title">분석 실행</text>
+  <text x="791" y="149" class="entity-name">SP_ANALYSIS_RUN</text>
+  <text x="791" y="182" class="field-key">PK  analysis_run_id</text>
+  <text x="791" y="206" class="field">    analysis_date</text>
+  <text x="791" y="230" class="field">    rule_version</text>
+  <text x="791" y="254" class="field">    run_status</text>
+  <text x="791" y="278" class="field">    started_at</text>
+  <text x="791" y="302" class="field">    completed_at</text>
+
+  <!-- Inventory Metric -->
+  <g filter="url(#shadow)">
+    <rect x="775" y="405" width="300" height="330" rx="10" fill="#ffffff" stroke="#c4b5fd"/>
+    <path d="M 775 415 Q 775 405 785 405 H 1065 Q 1075 405 1075 415 V 454 H 775 Z" fill="#7c3aed"/>
+  </g>
+  <text x="791" y="427" class="entity-title">재고 분석 지표</text>
+  <text x="791" y="444" class="entity-name">SP_INVENTORY_METRIC</text>
+  <text x="791" y="477" class="field-key">PK  inventory_metric_id</text>
+  <text x="791" y="501" class="field-key">FK  analysis_run_id</text>
+  <text x="791" y="525" class="field-key">FK  inventory_snapshot_id</text>
+  <text x="791" y="549" class="field">    available_quantity</text>
+  <text x="791" y="573" class="field">    average_daily_sales</text>
+  <text x="791" y="597" class="field">    coverage_days</text>
+  <text x="791" y="621" class="field">    classification</text>
+  <text x="791" y="645" class="field">    priority</text>
+  <text x="791" y="669" class="field">    created_at</text>
+  <text x="791" y="705" class="subtitle">규칙 버전별 계산 결과</text>
+
+  <!-- Recommendation -->
+  <g filter="url(#shadow)">
+    <rect x="1145" y="120" width="305" height="285" rx="10" fill="#ffffff" stroke="#6ee7b7"/>
+    <path d="M 1145 130 Q 1145 120 1155 120 H 1440 Q 1450 120 1450 130 V 169 H 1145 Z" fill="#059669"/>
+  </g>
+  <text x="1161" y="142" class="entity-title">재배분 추천</text>
+  <text x="1161" y="159" class="entity-name">SP_REBALANCE_RECOMMENDATION</text>
+  <text x="1161" y="192" class="field-key">PK  recommendation_id</text>
+  <text x="1161" y="216" class="field-key">FK  receiver_metric_id</text>
+  <text x="1161" y="240" class="field-key">FK  donor_metric_id</text>
+  <text x="1161" y="264" class="field">    receiver_shortage_quantity</text>
+  <text x="1161" y="288" class="field">    donor_transferable_quantity</text>
+  <text x="1161" y="312" class="field">    recommended_quantity</text>
+  <text x="1161" y="336" class="field">    created_at</text>
+  <text x="1161" y="378" class="subtitle">같은 SKU의 수요·공급 매장 연결</text>
+
+  <!-- Decision -->
+  <g filter="url(#shadow)">
+    <rect x="1145" y="495" width="305" height="275" rx="10" fill="#ffffff" stroke="#6ee7b7"/>
+    <path d="M 1145 505 Q 1145 495 1155 495 H 1440 Q 1450 495 1450 505 V 544 H 1145 Z" fill="#059669"/>
+  </g>
+  <text x="1161" y="517" class="entity-title">재배분 결정</text>
+  <text x="1161" y="534" class="entity-name">SP_REBALANCE_DECISION</text>
+  <text x="1161" y="567" class="field-key">PK  decision_id</text>
+  <text x="1161" y="591" class="field-key">FK  recommendation_id</text>
+  <text x="1161" y="615" class="field">    decision_status</text>
+  <text x="1161" y="639" class="field">    selected_quantity</text>
+  <text x="1161" y="663" class="field">    reason</text>
+  <text x="1161" y="687" class="field">    actor_label</text>
+  <text x="1161" y="711" class="field">    decided_at</text>
+  <text x="1161" y="748" class="subtitle">추천당 최대 1개 최종 결정</text>
+
+  <rect x="45" y="795" width="12" height="12" rx="2" fill="#2563eb"/>
+  <text x="65" y="806" class="legend">기준·원본</text>
+  <rect x="155" y="795" width="12" height="12" rx="2" fill="#7c3aed"/>
+  <text x="175" y="806" class="legend">분석 결과</text>
+  <rect x="265" y="795" width="12" height="12" rx="2" fill="#059669"/>
+  <text x="285" y="806" class="legend">추천·결정</text>
+  <text x="705" y="810" class="legend" text-anchor="end">Spring Batch 메타데이터 테이블은 업무 ERD에서 제외</text>
+</svg>

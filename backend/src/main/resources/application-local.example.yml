@@ -1,0 +1,15 @@
+# Copy this file to application-local.yml and replace the example values.
+# application-local.yml is ignored by Git.
+spring:
+  datasource:
+    url: jdbc:oracle:thin:@//localhost:1521/YOUR_SERVICE_NAME
+    username: YOUR_USERNAME
+    password: YOUR_PASSWORD
+
+stockpilot:
+  ai:
+    enabled: false
+    provider: ""
+    base-url: ""
+    api-key: ""
+    model: ""

@@ -1,6 +1,6 @@
 # Current Task
 
-Status: Ready for implementation<br>
+Status: In progress — Implementation order 1-4 complete and Oracle-verified; 5-8 remain<br>
 Current role: Claude implementation<br>
 Last updated: 2026-08-25
 
@@ -21,10 +21,10 @@ Read only:
 
 ## Implementation order
 
-1. Map the existing Oracle schema to the minimum JPA entities and repositories without changing approved table semantics.
-2. Implement pure Java calculation rules and Golden Scenario unit tests.
-3. Implement an idempotent Spring Batch analysis using the existing Flyway-owned metadata tables.
-4. Verify classifications, priorities and the 25-unit Hongdae-to-Gangnam recommendation against Oracle.
+1. [done] Map the existing Oracle schema to the minimum JPA entities and repositories without changing approved table semantics.
+2. [done] Implement pure Java calculation rules and Golden Scenario unit tests.
+3. [done] Implement an idempotent Spring Batch analysis using the existing Flyway-owned metadata tables.
+4. [done] Verify classifications, priorities and the 25-unit Hongdae-to-Gangnam recommendation against Oracle.
 5. Expose the minimum analysis, list, detail, simulation and decision APIs.
 6. Implement the exception list and detail/simulation screens.
 7. Add an AI-disabled explanation boundary; add a provider adapter only after provider settings are supplied.
@@ -50,3 +50,12 @@ Read only:
 ## Blocking information
 
 There is no Oracle infrastructure blocker. The local container, schema and Seed are verified. LLM provider settings remain intentionally absent and do not block the deterministic MVP.
+
+## Progress note for order 5
+
+`SpProduct`, `SpStore` and `SpRebalanceDecision` are not yet mapped to JPA (see
+`implemented-state.md`); order 5 will need them for API responses and decision
+persistence. No launch/service layer exists yet for the Batch Job — order 5 should add
+a service that calls `JobOperator.start(inventoryAnalysisJob, jobParameters)` (see
+`InventoryAnalysisGoldenScenarioIT` for the exact call shape and the
+`JobInstanceAlreadyCompleteException` handling it needs) behind `POST /api/analyses`.

@@ -1,8 +1,8 @@
 # StockPilot Product Specification
 
-Status: `APPROVED MVP-2 DEMO DESIGN` — Phase 1 입력·Oracle 완료
+Status: `APPROVED MVP-2 DEMO DESIGN`
 Approved: 2026-08-25
-Last updated: 2026-08-25
+Last updated: 2026-08-26
 
 > 이 문서의 수량 기준, 기간, 분류 임계값과 이동 정책은 버전 관리되는
 > `ASSUMPTION`이다. 실제 F&F 정책이나 검증된 산업 표준이 아니다. 실제 기업
@@ -15,13 +15,12 @@ StockPilot은 미래 수요를 정확히 예언하거나 재고 이동을 자동
 성격·데이터 신뢰도·입고 예정·이동 제약과 복수 수량 시나리오를 한 흐름에서
 비교하게 하는 **재고 예외 검토 및 재배분 의사결정 워크벤치**다.
 
-현재 저장소에는 `MVP-1` Vertical Slice와 MVP-2 Phase 1이 실제 구현돼 있다.
-Oracle/Flyway `V1`~`V8`, 7일 판매 기반 Batch 분석, REST API, React 목록·상세·시뮬레이션·
-결정 화면, AI-disabled 설명 경계와 Oracle 통합 테스트를 보존한다. `MVP-2`는
-이 검증된 기준선을 폐기하지 않고 28일 수요 신호와 실행 제약을 추가하는 다음
-설계다. 2026-08-25 사용자 승인을 받아 구현 기준선으로 확정됐고 입력 계약,
-물리 Schema와 GS-01~GS-06 Seed까지 구현됐다. 28일 Java 계산, Batch, API와
-화면은 아직 구현되지 않았다.
+`MVP-2`는 검증된 `MVP-1` Vertical Slice를 폐기하지 않고 28일 수요 신호와 실행
+제약을 추가하는 설계다. 2026-08-25 사용자 승인을 받아 구현 기준선으로 확정됐다.
+완료된 MVP-1 기준선은 [`milestones/MVP-1.md`](milestones/MVP-1.md), 현재 실제
+구현 범위와 다음 작업은 [`state/implemented-state.md`](state/implemented-state.md)와
+[`state/current-task.md`](state/current-task.md)가 소유한다. 이 제품 명세에는
+세션별 진행 상태를 누적하지 않는다.
 
 ## 2. 제품 정의
 
@@ -148,12 +147,15 @@ flowchart LR
     Explain -. 수량·상태 변경 금지 .-> API
 ```
 
-현재 Tasklet의 전체 메모리 적재와 매장–SKU별 반복 판매 조회는 기존 합성
-데이터에는 충분하지만 대규모 처리로 주장하지 않는다. MVP-2 구현에서는 Oracle
-집계로 N+1을 제거하고 SKU 또는 페이지 단위 Chunk 처리, Batch insert, 명시적
-실패 상태를 검토한다. 실행 키는
-`(analysisDate, inputSnapshotVersion, ruleVersion)`이며 새 입력 버전은 과거
-결과를 덮어쓰지 않는다.
+현재 MVP-1 Tasklet의 매장–SKU별 반복 판매 조회는 합성 데이터에도 N+1이므로 MVP-2에서
+재사용하지 않는다. MVP-2는 버전·기간으로 제한한 고정 개수 bulk JDBC query로 일별 사실과
+정책 입력을 읽고, 계산은 Java에서 수행한다. V6 결과가 staging 구조가 아니므로
+commit-per-chunk는 실패 시 부분 결과를 남긴다. Phase 3에서는 합성 규모 전체 output을
+한 transaction으로 저장하고 실제 query 수와 경과시간을 기록하되 대규모 처리로 주장하지
+않는다. 대규모 page/chunk는 별도 staging Schema가 승인될 때 확장한다. 실행 키는
+`(analysisDate, inputSnapshotVersion, ruleVersion)`이며 새 입력 버전은 과거 결과를
+덮어쓰지 않는다. 실행 상태는 output transaction과 분리해 `RUNNING`, `COMPLETED`,
+`FAILED`를 실제 Oracle에 남긴다.
 
 ## 8. 목표 API
 
@@ -173,6 +175,32 @@ flowchart LR
 
 승인은 결정 저장과 이동지시 초안 생성을 하나의 트랜잭션으로 처리하지만 실제
 재고나 외부 ERP는 변경하지 않는다.
+
+### 공통 오류 계약
+
+REST 오류는 RFC 9457 `ProblemDetail` 형태를 사용하고 다음 확장 필드를 고정한다.
+
+| Field | Meaning |
+|---|---|
+| `code` | 클라이언트 분기용 안정적인 오류 코드 |
+| `status` | HTTP 상태 코드 |
+| `title`, `detail` | 한국어 기본 제목과 사용자 조치 안내 |
+| `retryable` | 동일 요청을 최신 상태에서 재시도할 수 있는지 여부 |
+| `requestId`, `timestamp`, `instance` | 추적 ID, 발생 시각, 요청 경로 |
+| `fieldErrors` | 입력 검증 실패일 때만 필드·검증 코드 목록 |
+
+오류 코드의 HTTP 상태·한국어 문구·재시도 여부와 알려진 DB 제약 매핑은 Oracle의
+`SP_ERROR_CATALOG`/`SP_ERROR_CONSTRAINT_MAP`이 소유한다. Java 서비스는 HTTP 상태와
+문구를 직접 만들지 않고 안정적인 코드만 중앙 예외에 전달한다. 다만 코드에 따른
+업무 분기 자체와 결정론적 도메인 enum은 Java에 남는다. DB 장애를 설명하려고 같은
+DB를 다시 조회할 수 없는 경우를 위해 `INTERNAL_SERVER_ERROR`와
+`PERSISTENCE_UNAVAILABLE`의 최소 fallback 응답만 Java에 고정한다.
+
+`POST /api/rebalancing-decisions`는 `Idempotency-Key`를 필수로 받고 신규 저장은
+`201 Created`, 같은 키·같은 요청의 재전송은 기존 결과를 `200 OK`로 반환한다. 같은
+키를 다른 요청에 재사용하면 `IDEMPOTENCY_KEY_REUSED`, 최신 재계산과 맞지 않으면
+`STALE_RECOMMENDATION`을 각각 `409 Conflict`로 반환한다. 원시 SQL, 제약명, stack
+trace와 내부 예외 메시지는 응답에 노출하지 않는다.
 
 ## 9. 목표 화면
 
@@ -266,10 +294,10 @@ MVP-2 데모에만 적용되는 버전 관리 `ASSUMPTION`이다.
 
 ## 13. 구현 순서
 
-1. **Phase 0 — 문서 재기준선(완료):** 제품·규칙·데이터 모델·README·상태
-   문서를 일치시키고 사용자 승인을 받았다.
-2. **Phase 1 — 입력과 Oracle(완료):** `V6` Schema, `V7` SYNTHETIC Seed,
-   `V8` Comment를 추가하고 여섯 시나리오 입력을 Oracle에서 재현했다.
+1. **Phase 0 — 문서 재기준선:** 제품·규칙·데이터 모델·README·상태
+   문서를 일치시키고 사용자 승인을 받는다.
+2. **Phase 1 — 입력과 Oracle:** `V6` Schema, `V7` SYNTHETIC Seed,
+   `V8` Comment를 추가하고 여섯 시나리오 입력을 Oracle에서 재현한다.
 3. **Phase 2 — 순수 Java 규칙:** 신호·품질·예외·후보·시나리오·승인 검증을
    Spring/JPA와 독립된 테스트로 고정한다.
 4. **Phase 3 — Batch:** 28일 집계, N+1 제거, 입력 버전 멱등성과 실패 원자성을
@@ -282,9 +310,8 @@ MVP-2 데모에만 적용되는 버전 관리 `ASSUMPTION`이다.
 8. **Phase 7 — 검증:** Backend, Oracle, Frontend, Batch 측정과 README 명령을
    재실행하고 구현/계획 상태를 대조한다.
 
-**현재 인계 지점:** Phase 0 설계 승인까지 완료됐다. 다음 역할은 확정된 문서
-범위 안에서 Phase 1을 구현하며, 이 승인 기록 자체는 아직 MVP-2가 구현됐다는
-표시로 사용하지 않는다.
+실제 완료 Phase, 현재 인계 지점과 다음 역할은 state 문서에서만 갱신한다. 이
+구현 순서는 진행 일지가 아니며 설계 승인을 구현 완료의 증거로 사용하지 않는다.
 
 ## 14. 공개 근거와 한계
 

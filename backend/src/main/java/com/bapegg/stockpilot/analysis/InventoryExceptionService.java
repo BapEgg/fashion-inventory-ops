@@ -1,5 +1,7 @@
 package com.bapegg.stockpilot.analysis;
 
+import com.bapegg.stockpilot.api.error.ApiErrorCode;
+import com.bapegg.stockpilot.api.error.ApiException;
 import com.bapegg.stockpilot.catalog.SpProduct;
 import com.bapegg.stockpilot.catalog.SpProductRepository;
 import com.bapegg.stockpilot.catalog.SpStore;
@@ -8,9 +10,7 @@ import com.bapegg.stockpilot.inventory.SpInventorySnapshot;
 import com.bapegg.stockpilot.rebalance.SpRebalanceDecisionRepository;
 import com.bapegg.stockpilot.rebalance.SpRebalanceRecommendation;
 import com.bapegg.stockpilot.rebalance.SpRebalanceRecommendationRepository;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.util.Comparator;
@@ -86,8 +86,8 @@ public class InventoryExceptionService {
     public InventoryExceptionDetail getExceptionDetail(Long inventoryMetricId) {
         SpInventoryMetric metric = metricRepository.findWithSnapshotById(inventoryMetricId)
                 .filter(m -> ACTIONABLE.contains(m.getClassification()))
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "No inventory exception found for id " + inventoryMetricId));
+                .orElseThrow(() -> new ApiException(
+                        ApiErrorCode.INVENTORY_EXCEPTION_NOT_FOUND, "No inventory exception found for id " + inventoryMetricId));
 
         SpInventorySnapshot snapshot = metric.getInventorySnapshot();
         SpProduct product = productRepository.findById(snapshot.getSkuId()).orElse(null);
@@ -131,20 +131,21 @@ public class InventoryExceptionService {
         if (analysisDate.isPresent()) {
             return analysisRunRepository
                     .findByAnalysisDateAndRuleVersion(analysisDate.get(), InventoryAnalysisRules.RULE_VERSION)
-                    .orElseThrow(() -> new ResponseStatusException(
-                            HttpStatus.NOT_FOUND, "No analysis run found for date " + analysisDate.get()));
+                    .orElseThrow(() -> new ApiException(
+                            ApiErrorCode.ANALYSIS_NOT_FOUND, "No analysis run found for date " + analysisDate.get()));
         }
         return analysisRunRepository
                 .findTopByRuleVersionAndRunStatusOrderByAnalysisDateDesc(
                         InventoryAnalysisRules.RULE_VERSION, AnalysisRunStatus.COMPLETED)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "No completed analysis run found."));
+                .orElseThrow(() -> new ApiException(
+                        ApiErrorCode.ANALYSIS_NOT_FOUND, "No completed analysis run found."));
     }
 
     private RecommendationView toRecommendationView(
             SpRebalanceRecommendation recommendation, String counterpartStoreId, Map<String, SpStore> counterpartStores) {
         SpStore counterpartStore = counterpartStores.get(counterpartStoreId);
-        var decision = decisionRepository.findByRecommendation_RecommendationId(recommendation.getRecommendationId());
+        var decision = decisionRepository.findFirstByRecommendation_RecommendationIdOrderByDecisionSequenceDesc(
+                recommendation.getRecommendationId());
         return new RecommendationView(
                 recommendation.getRecommendationId(),
                 counterpartStoreId,

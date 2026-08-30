@@ -10,6 +10,7 @@ import org.springframework.batch.core.launch.JobInstanceAlreadyCompleteException
 import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.batch.core.launch.JobRestartException;
 import org.springframework.batch.core.job.parameters.InvalidJobParametersException;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -40,7 +41,9 @@ public class AnalysisRunService {
     private final SpAnalysisRunRepository analysisRunRepository;
 
     public AnalysisRunService(
-            JobOperator jobOperator, Job inventoryAnalysisJob, SpAnalysisRunRepository analysisRunRepository) {
+            JobOperator jobOperator,
+            @Qualifier("inventoryAnalysisJob") Job inventoryAnalysisJob,
+            SpAnalysisRunRepository analysisRunRepository) {
         this.jobOperator = jobOperator;
         this.inventoryAnalysisJob = inventoryAnalysisJob;
         this.analysisRunRepository = analysisRunRepository;

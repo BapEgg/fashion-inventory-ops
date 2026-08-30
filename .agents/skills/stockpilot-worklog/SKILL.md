@@ -9,9 +9,14 @@ Use this skill after meaningful work or before transferring the task to another 
 
 ## Update order
 
-1. Update `knowledge/state/implemented-state.md` with observable repository and validation facts.
-2. Update `knowledge/state/current-task.md` with the next role, goal, blockers and completion condition.
+1. Replace obsolete statements in `knowledge/state/implemented-state.md` with current
+   observable repository and validation facts.
+2. Rewrite `knowledge/state/current-task.md` around the next role, goal, blockers and
+   completion condition, removing completed work from the hot path.
 3. Append one compact entry to `knowledge/worklogs/YYYY-MM.md`.
+
+State documents are snapshots, not append-only logs. Never paste the session entry,
+resolved finding chronology or file-by-file narration into either state document.
 
 ## Entry format
 
@@ -30,3 +35,8 @@ Keep the entry under 20 lines. Link to the owning specification instead of copyi
 
 If no meaningful state changed, do not create a Worklog entry.
 
+## Compaction trigger
+
+Before finishing, check the hot-state budgets in `knowledge/00-start-here.md`. If an
+MVP/Phase was accepted or a budget is exceeded, use `stockpilot-checkpoint` to preserve
+the raw files and rewrite the hot state. Do not truncate or delete history in place.

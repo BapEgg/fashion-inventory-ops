@@ -7,6 +7,7 @@ import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.Step;
 import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -33,7 +34,8 @@ import org.springframework.transaction.PlatformTransactionManager;
 public class InventoryAnalysisJobConfig {
 
     @Bean
-    public Job inventoryAnalysisJob(JobRepository jobRepository, Step inventoryAnalysisStep) {
+    public Job inventoryAnalysisJob(
+            JobRepository jobRepository, @Qualifier("inventoryAnalysisStep") Step inventoryAnalysisStep) {
         return new JobBuilder("inventoryAnalysisJob", jobRepository)
                 .start(inventoryAnalysisStep)
                 .build();

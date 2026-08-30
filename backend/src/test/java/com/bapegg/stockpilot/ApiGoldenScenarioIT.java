@@ -12,6 +12,7 @@ import com.bapegg.stockpilot.analysis.SpInventoryMetricRepository;
 import com.bapegg.stockpilot.explanation.ExplanationResponse;
 import com.bapegg.stockpilot.inventory.SpInventorySnapshot;
 import com.bapegg.stockpilot.inventory.SpInventorySnapshotRepository;
+import com.bapegg.stockpilot.rebalance.DecisionStatus;
 import com.bapegg.stockpilot.rebalance.RebalanceCalculation;
 import com.bapegg.stockpilot.rebalance.RebalanceDecisionResponse;
 import com.bapegg.stockpilot.rebalance.RebalanceSimulationResponse;
@@ -74,7 +75,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ApiGoldenScenarioIT {
 
     private static final String ANALYSIS_DATE = "2026-08-25";
-    private static final String DECISION_TEST_RULE_VERSION = InventoryAnalysisRules.RULE_VERSION + "-DECISION-IT";
+    // Per the 2026-08-28 Codex finding: RebalanceSimulationService's tuple-less legacy path now
+    // allowlists an *exact* InventoryAnalysisRules.RULE_VERSION match (not "anything not MVP-2"),
+    // so this test can no longer use a "MVP-1-DECISION-IT" suffix to isolate its own run from the
+    // real Golden Scenario one -- it isolates via a dedicated, never-otherwise-used analysisDate
+    // (with its own freshly inserted snapshot rows) instead, keeping the rule version exactly
+    // "MVP-1" like a real recommendation would have.
+    private static final LocalDate DECISION_TEST_ANALYSIS_DATE = LocalDate.of(2026, 10, 31);
+    // Same reasoning as DECISION_TEST_ANALYSIS_DATE above: RebalanceDecisionService now allowlists
+    // an *exact* InventoryAnalysisRules.RULE_VERSION match too (current-task.md's 2026-08-28
+    // approval/decision REST spec, section 1.2), so this test also needs its own dedicated date
+    // and snapshot rows instead of a suffixed rule version, to keep testing decisionStatus
+    // rejection rather than incidentally testing the rule-version guard instead.
+    private static final LocalDate DECISION_STATUS_TEST_ANALYSIS_DATE = LocalDate.of(2026, 11, 10);
     private static final LocalDate RERUN_REPORTING_TEST_DATE = LocalDate.of(2026, 9, 15);
 
     @Autowired
@@ -206,15 +219,18 @@ class ApiGoldenScenarioIT {
 
     @Test
     void decisionWorkflowApprovesWithinSimulationRange() throws Exception {
-        LocalDate analysisDate = LocalDate.parse(ANALYSIS_DATE);
+        LocalDate analysisDate = DECISION_TEST_ANALYSIS_DATE;
         int quantity = 20;
 
-        deleteAnalysisRun(analysisDate, DECISION_TEST_RULE_VERSION);
+        deleteAnalysisRun(analysisDate, InventoryAnalysisRules.RULE_VERSION);
+        insertSnapshot(analysisDate, "STORE-GANGNAM", "SKU-CAP-BLACK-FREE", 6, 1);
+        insertSnapshot(analysisDate, "STORE-HONGDAE", "SKU-CAP-BLACK-FREE", 42, 2);
         try {
             SpInventorySnapshot gangnamSnapshot = findSnapshot(analysisDate, "STORE-GANGNAM");
             SpInventorySnapshot hongdaeSnapshot = findSnapshot(analysisDate, "STORE-HONGDAE");
 
-            SpAnalysisRun testRun = analysisRunRepository.save(new SpAnalysisRun(analysisDate, DECISION_TEST_RULE_VERSION));
+            SpAnalysisRun testRun =
+                    analysisRunRepository.save(new SpAnalysisRun(analysisDate, InventoryAnalysisRules.RULE_VERSION));
             testRun.markCompleted();
             testRun = analysisRunRepository.save(testRun);
 
@@ -265,7 +281,60 @@ class ApiGoldenScenarioIT {
                                     + ",\"actorLabel\":\"integration-test\"}"))
                     .andExpect(status().isConflict());
         } finally {
-            deleteAnalysisRun(analysisDate, DECISION_TEST_RULE_VERSION);
+            deleteAnalysisRun(analysisDate, InventoryAnalysisRules.RULE_VERSION);
+            jdbcTemplate.update("DELETE FROM sp_inventory_snapshot WHERE snapshot_date = ? AND store_id IN (?, ?)",
+                    analysisDate, "STORE-GANGNAM", "STORE-HONGDAE");
+        }
+    }
+
+    /**
+     * Regression for a Codex review finding: widening {@link DecisionStatus} to all
+     * five MVP-2 persistence states (so the JPA mapping can read {@code HELD}/
+     * {@code EXPIRED}/{@code PENDING} rows a future approval service writes) must not
+     * silently widen what this MVP-1-only REST contract accepts. Also confirms no
+     * decision row is persisted for a rejected request.
+     */
+    @Test
+    void decisionWorkflowRejectsNonMvp1DecisionStatuses() throws Exception {
+        LocalDate analysisDate = DECISION_STATUS_TEST_ANALYSIS_DATE;
+
+        deleteAnalysisRun(analysisDate, InventoryAnalysisRules.RULE_VERSION);
+        insertSnapshot(analysisDate, "STORE-GANGNAM", "SKU-CAP-BLACK-FREE", 6, 1);
+        insertSnapshot(analysisDate, "STORE-HONGDAE", "SKU-CAP-BLACK-FREE", 42, 2);
+        try {
+            SpInventorySnapshot gangnamSnapshot = findSnapshot(analysisDate, "STORE-GANGNAM");
+            SpInventorySnapshot hongdaeSnapshot = findSnapshot(analysisDate, "STORE-HONGDAE");
+
+            SpAnalysisRun testRun =
+                    analysisRunRepository.save(new SpAnalysisRun(analysisDate, InventoryAnalysisRules.RULE_VERSION));
+            testRun.markCompleted();
+            testRun = analysisRunRepository.save(testRun);
+
+            SpInventoryMetric receiverMetric = metricRepository.save(new SpInventoryMetric(
+                    testRun, gangnamSnapshot, InventoryMetricCalculation.calculate(6, 1, 28)));
+            SpInventoryMetric donorMetric = metricRepository.save(new SpInventoryMetric(
+                    testRun, hongdaeSnapshot, InventoryMetricCalculation.calculate(42, 2, 4)));
+            SpRebalanceRecommendation recommendation = recommendationRepository.save(new SpRebalanceRecommendation(
+                    receiverMetric, donorMetric, new RebalanceCalculation(25, 30, 25)));
+            Long recommendationId = recommendation.getRecommendationId();
+
+            for (String rejectedStatus : new String[] {"PENDING", "HELD", "EXPIRED"}) {
+                mockMvc.perform(post("/api/rebalancing-decisions")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"recommendationId\":" + recommendationId
+                                        + ",\"decisionStatus\":\"" + rejectedStatus + "\""
+                                        + ",\"selectedQuantity\":20"
+                                        + ",\"reason\":\"should not be accepted\""
+                                        + ",\"actorLabel\":\"integration-test\"}"))
+                        .andExpect(status().isBadRequest());
+            }
+
+            assertFalse(decisionRepository.existsByRecommendation_RecommendationId(recommendationId),
+                    "No decision should be persisted for a rejected decisionStatus.");
+        } finally {
+            deleteAnalysisRun(analysisDate, InventoryAnalysisRules.RULE_VERSION);
+            jdbcTemplate.update("DELETE FROM sp_inventory_snapshot WHERE snapshot_date = ? AND store_id IN (?, ?)",
+                    analysisDate, "STORE-GANGNAM", "STORE-HONGDAE");
         }
     }
 
@@ -316,6 +385,14 @@ class ApiGoldenScenarioIT {
         }
     }
 
+    private void insertSnapshot(LocalDate snapshotDate, String storeId, String skuId, int onHand, int reserved) {
+        jdbcTemplate.update(
+                "INSERT INTO sp_inventory_snapshot (snapshot_date, store_id, sku_id, on_hand_quantity, "
+                        + "reserved_quantity, source_type, input_snapshot_version) "
+                        + "VALUES (?, ?, ?, ?, ?, 'SYNTHETIC', 'MVP-1-LEGACY')",
+                snapshotDate, storeId, skuId, onHand, reserved);
+    }
+
     private SpInventorySnapshot findSnapshot(LocalDate analysisDate, String storeId) {
         return snapshotRepository.findBySnapshotDate(analysisDate).stream()
                 .filter(s -> storeId.equals(s.getStoreId()))
@@ -331,8 +408,9 @@ class ApiGoldenScenarioIT {
                     for (SpInventoryMetric metric : metrics) {
                         recommendationRepository.findByReceiverMetricIdOrDonorMetricId(metric.getInventoryMetricId())
                                 .forEach(recommendation -> {
-                                    decisionRepository.findByRecommendation_RecommendationId(recommendation.getRecommendationId())
-                                            .ifPresent(decisionRepository::delete);
+                                    decisionRepository.deleteAll(decisionRepository
+                                            .findAllByRecommendation_RecommendationIdOrderByDecisionSequenceAsc(
+                                                    recommendation.getRecommendationId()));
                                     recommendationRepository.delete(recommendation);
                                 });
                     }

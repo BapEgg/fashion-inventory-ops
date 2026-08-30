@@ -1,12 +1,14 @@
 # Inventory Analysis Business Rules
 
-Status: `APPROVED MVP-2 DEMO ASSUMPTIONS` — Phase 1 Schema 완료, Java 규칙 미구현
+Status: `APPROVED MVP-2 DEMO ASSUMPTIONS` — 승인 application transaction accepted,
+`MANUAL` 수량 시험 application 계약 accepted
 
 Approved specification rule version: `MVP-2`
 
-Active implemented Java rule version: `MVP-1`
+Active Java rules: `MVP-1` Batch/REST compatibility and `MVP-2` deterministic demand/
+approval application logic
 Approved: 2026-08-25
-Last updated: 2026-08-25
+Last updated: 2026-08-27
 
 > 이 문서의 모든 기간, 임계값, 기본 정책과 수량식은 데모를 위한
 > `ASSUMPTION`이다. 실제 F&F 정책이나 검증된 산업 표준값이 아니다. Java가
@@ -25,6 +27,7 @@ fallback이다. F&F 내부 정책 또는 산업 표준의 근거로 재사용하
 | 최소 관측 가능 일수 | `14일` | 재고가 있어 판매를 볼 수 있었던 날 |
 | 최소 출시 경과일 | `14일` | 미만은 `DATA_INSUFFICIENT` |
 | 재고 최신성 허용 | 분석 기준시각 이전 `24시간` | 초과 시 `STALE_INVENTORY` |
+| 분석 기준시각 | `analysisDate + 1일 00:00 Asia/Seoul` | 날짜형 실행 키의 결정론적 시각 변환 |
 | 간헐 수요 활성 주 | `2개 이하` | 네 고정 주간 중 판매량 > 0 |
 | 간헐 수요 판매일 비율 | `25% 미만` | 판매일 / 관측 가능일 |
 | 안정 수요 최소 활성 주 | `3개 이상` | 네 고정 주간 기준 |
@@ -52,6 +55,8 @@ fallback이다. F&F 내부 정책 또는 산업 표준의 근거로 재사용하
 ## 2. 용어와 관측 가능성
 
 - `analysisDate`: 관측에 포함하지 않는 분석 기준일
+- `analysisReferenceAt`: `analysisDate` 다음 날 00:00 `Asia/Seoul`; 현재 스냅샷의
+  미래 여부와 24시간 최신성을 판정하는 MVP-2 기술 `ASSUMPTION`
 - `inputSnapshotVersion`: 한 분석이 읽은 입력 묶음의 불변 버전
 - `currentAvailable`: 장부 재고에서 예약재고를 뺀 현재 가용재고
 - `observableDay`: 그날의 재고 기준시각이 유효하고 판매 가능 재고가 1개 이상인 날
@@ -133,7 +138,7 @@ singleBulkTransaction = maxTransactionQuantity >= 5
 | Flag | 조건 |
 |---|---|
 | `OOS_CENSORED` | 관측 구간에 품절로 잘린 날이 하나 이상 |
-| `STALE_INVENTORY` | 기준 재고시각이 분석 기준시각보다 24시간 넘게 오래됨 |
+| `STALE_INVENTORY` | 현재 기준 재고시각이 분석 기준시각보다 24시간 넘게 오래됐거나, 관측일의 `snapshotAt` 현지 날짜가 그 행의 `snapshotDate`와 다름 |
 | `MISSING_INBOUND` | 입고 참조는 있으나 ETA·수량·상태 중 필수값이 불완전 |
 | `INCOMPLETE_EVENT_DATA` | 이벤트는 있으나 대상 범위 또는 low/base/high uplift가 불완전 |
 
@@ -247,6 +252,14 @@ receiverAtArrivalWithoutNewTransfer(rate) =
 7. `CAPACITY_EXCEEDED`
 8. `PENDING_TRANSFER_CONFLICT`
 
+진행 중 이동 상태는 수량 반영과 충돌 차단을 중복 적용하지 않는다.
+
+- `APPROVED`, `IN_TRANSIT`: receiver inbound와 donor outbound projection에 수량을
+  한 번 반영하며 `PENDING_TRANSFER_CONFLICT` 사유로는 사용하지 않는다.
+- `REQUESTED`: 아직 projection 수량에는 반영하지 않고, 동일 donor–receiver–SKU lane의
+  새 후보만 `PENDING_TRANSFER_CONFLICT`로 차단한다.
+- `CANCELLED`, `RECEIVED`: 현재 projection과 pending-conflict 판정에서 모두 제외한다.
+
 ## 8. 공급 가능량과 시나리오 수량
 
 공급 매장은 high 수요율로 보호한다.
@@ -298,7 +311,13 @@ scenarioQuantity = floor(rawQuantity / packageMultiple) * packageMultiple
 | `CONSERVATIVE` | `lowDemandRate` |
 | `BASE` | `baseDemandRate` |
 | `AGGRESSIVE` | `highDemandRate` |
-| `MANUAL` | 사용자 입력 후 위 공급·경로·수용량 제약 전부 재검증 |
+| `MANUAL` | 사용자가 입력한 이동수량을 공급·경로·수용량 제약으로 재검증 |
+
+`MANUAL` 입력은 수요율이 아니라 양의 정수 이동수량이다. 시스템은 포장 배수에
+맞추려고 입력을 자동 반올림하지 않고 위반 사유와 적용 가능한 하향 제안수량을
+별도로 반환한다. 제약 안의 수량은 BASE보다 크거나 작아도 시험 가능하지만 실제
+승인 시 BASE와 다르면 사유 코드와 설명이 필요하다. 수동 결과의 양쪽 재고·커버리지·
+위험 비교에는 현재 BASE 수요율을 사용한다. 이는 MVP-2 데모 `ASSUMPTION`이다.
 
 각 결과는 양쪽 매장의 이동 전후 가용재고, 커버리지, 새 품절 위험, 반영한 입고,
 진행 중 이동과 경고를 함께 반환한다.
@@ -346,6 +365,37 @@ scenarioQuantity = floor(rawQuantity / packageMultiple) * packageMultiple
 
 실제 재고는 차감하지 않는다. 같은 공급 재고를 두 수요 매장이 동시에 승인해도
 행 잠금과 승인 draft 재합산 때문에 공급 가능량을 초과할 수 없어야 한다.
+
+공개 사용자 API가 저장하는 상태는 `HELD`, `APPROVED`, `REJECTED`다. `PENDING`은
+결정 이력이 없을 때의 논리 상태이고 `EXPIRED`는 향후 시스템 만료 처리용이므로
+사용자 요청으로 저장하지 않는다. `HELD`에서는 다시 `HELD`, `APPROVED`,
+`REJECTED`로 전이할 수 있고 `APPROVED`, `REJECTED`, `EXPIRED`는 terminal이다.
+이는 실제 기업 정책이 아니라 MVP-2 데모 `ASSUMPTION`이다.
+
+모든 결정 요청은 재시도 식별자인 `Idempotency-Key`를 가진다. 같은 키와 같은
+정규화 요청은 새 이력을 만들지 않고 기존 결정을 반환하며, 같은 키를 다른
+추천·상태·수량·사유에 재사용하면 충돌이다. 결정 순번은 추천 행을 잠근 뒤
+`MAX(decision_sequence) + 1`로 정하고 DB unique를 최종 방어선으로 둔다.
+
+현재 버전 입력은 immutable이라는 전제에서 승인 시점의 “최신”은 요청이 가리키는
+완료된 분석 실행의 입력 버전 안에서 다시 읽은 재고·입고·진행 중 이동과, 승인
+트랜잭션 직전까지 commit된 활성 draft를 뜻한다. 동일 rule version의 더 최신 완료
+분석 실행이 있거나 요청 버전이 추천과 다르면 오래된 추천으로 거부한다. 입력 적재와
+승인을 동시에 수행하는 운영 모델은 이번 범위 밖이며, 필요해지면 별도의 활성 입력
+버전 레지스트리와 publication lock이 선행돼야 한다.
+
+Batch 추천과 승인·`MANUAL` 재계산은 다음 current-basis 계약을 공유한다.
+
+- 관련 이벤트는 같은 입력 버전에서 관측 또는 계획 구간과 겹치는 store–SKU 행을
+  `(startDate, eventCode)` 오름차순으로 정렬하고 첫 행을 대표 이벤트로 고른다.
+- 대표 `KNOWN_EVENT`가 해당 route의 도착일~목표 커버리지 종료일과 겹치면 baseline
+  BASE에 같은 uplift BASE를 scale 12 `HALF_UP`으로 적용한다. 이 effective BASE를
+  추천, `MANUAL`의 기준수량·비교, 최종 승인 재검증에 모두 사용한다.
+- 공급 매장 보호량은 기존과 같이 donor baseline HIGH를 사용하며 event uplift를
+  추가하지 않는다.
+- 매장–SKU 정책 행이 없으면 1절의 display/safety/capacity/target/retained 기본값을
+  Batch와 승인·`MANUAL` 모두 사용한다. 경로 행이 없을 때는 fallback으로 허용하지 않고
+  계속 `ROUTE_NOT_ALLOWED`다.
 
 ## 11. AI와 RAG 경계
 

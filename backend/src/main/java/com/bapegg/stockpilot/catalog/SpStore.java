@@ -25,6 +25,9 @@ public class SpStore {
     @Column(name = "region", nullable = false, length = 80)
     private String region;
 
+    @Column(name = "inventory_owner_code", nullable = false, length = 64)
+    private String inventoryOwnerCode;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -41,6 +44,15 @@ public class SpStore {
 
     public String getRegion() {
         return region;
+    }
+
+    /**
+     * {@code V6}'s {@code inventory_owner_code} -- read-only here (nothing in this codebase
+     * writes a new {@code sp_store} row; every existing row already has it backfilled).
+     * Used by the approval transaction's fresh {@code OWNER_MISMATCH} candidate check.
+     */
+    public String getInventoryOwnerCode() {
+        return inventoryOwnerCode;
     }
 
     public OffsetDateTime getCreatedAt() {

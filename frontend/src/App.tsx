@@ -1,164 +1,165 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { ApiError, getExceptionDetail, isAbortError, listExceptions, runAnalysis } from './api'
-import ExceptionDetail from './components/ExceptionDetail'
-import ExceptionList from './components/ExceptionList'
-import type { InventoryExceptionDetail, InventoryExceptionSummary } from './types'
+import { useEffect, useRef, useState } from 'react'
+import * as api from './api'
+import type { ApiError } from './api'
+import type { ExceptionListFilters, Mvp2InventoryExceptionPage } from './types'
+import { AnalysisContext, type RunContext } from './components/AnalysisContext'
+import { DEFAULT_FILTERS, ExceptionFilters } from './components/ExceptionFilters'
+import { ExceptionList } from './components/ExceptionList'
+import { ExceptionDetail } from './components/ExceptionDetail'
+import { ProblemAlert } from './components/ProblemAlert'
 
-const DEFAULT_ANALYSIS_DATE = '2026-08-26'
+const ACTOR_LABEL_STORAGE_KEY = 'stockpilot.actorLabel'
 
-export default function App() {
-  const [analysisDate, setAnalysisDate] = useState(DEFAULT_ANALYSIS_DATE)
-  const [exceptions, setExceptions] = useState<InventoryExceptionSummary[]>([])
-  const [selectedId, setSelectedId] = useState<number | null>(null)
-  const [detail, setDetail] = useState<InventoryExceptionDetail | null>(null)
+function readStoredActorLabel(): string {
+  try {
+    return window.sessionStorage.getItem(ACTOR_LABEL_STORAGE_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}
 
+/**
+ * Owns only run context and list/detail top-level state, per the React wiring spec section 11.
+ * No router/global store -- every screen transition is explicit local state here.
+ */
+function App() {
+  const [run, setRun] = useState<RunContext | null>(null)
+  const [filters, setFilters] = useState<ExceptionListFilters>(DEFAULT_FILTERS)
+  const [page, setPage] = useState<Mvp2InventoryExceptionPage | null>(null)
   const [listLoading, setListLoading] = useState(false)
-  const [listError, setListError] = useState<string | null>(null)
-  const [analysisRunning, setAnalysisRunning] = useState(false)
-  const [analysisMessage, setAnalysisMessage] = useState<string | null>(null)
+  const [listError, setListError] = useState<ApiError | null>(null)
+  const [selectedMetricId, setSelectedMetricId] = useState<number | null>(null)
+  const [actorLabel, setActorLabel] = useState<string>(readStoredActorLabel)
 
-  // Guard against stale async responses: a request superseded by a newer one (the
-  // date changed again, or another item was selected) is aborted, and its eventual
-  // rejection is ignored rather than overwriting state with out-of-date data.
-  const listRequestRef = useRef<AbortController | null>(null)
-  const detailRequestRef = useRef<AbortController | null>(null)
+  const listAbortRef = useRef<AbortController | null>(null)
 
-  // Lets handleRunAnalysis, after its await, tell whether the user has since selected
-  // a different date (a plain closure over `analysisDate` would only ever see the
-  // value from the click that started it).
-  const analysisDateRef = useRef(analysisDate)
-  useEffect(() => {
-    analysisDateRef.current = analysisDate
-  }, [analysisDate])
+  useEffect(() => () => listAbortRef.current?.abort(), [])
 
-  const loadExceptions = useCallback(async (date: string) => {
-    listRequestRef.current?.abort()
+  function persistActorLabel(value: string) {
+    setActorLabel(value)
+    try {
+      window.sessionStorage.setItem(ACTOR_LABEL_STORAGE_KEY, value)
+    } catch {
+      // sessionStorage may be unavailable (private mode); the label just stays in-memory for this render.
+    }
+  }
+
+  function fetchList(analysisRunId: number, nextFilters: ExceptionListFilters) {
+    listAbortRef.current?.abort()
     const controller = new AbortController()
-    listRequestRef.current = controller
+    listAbortRef.current = controller
     setListLoading(true)
     setListError(null)
-    try {
-      const result = await listExceptions(date, controller.signal)
-      if (listRequestRef.current !== controller) return
-      setExceptions(result)
-    } catch (error) {
-      if (isAbortError(error)) return
-      setExceptions([])
-      setListError(error instanceof ApiError ? error.message : '예외 목록을 불러오지 못했습니다.')
-    } finally {
-      if (listRequestRef.current === controller) {
-        setListLoading(false)
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    // The previously selected exception belongs to the date being replaced; clear it
-    // (and cancel any detail fetch still in flight) so a stale-date screen is never shown.
-    detailRequestRef.current?.abort()
-    setSelectedId(null)
-    setDetail(null)
-    loadExceptions(analysisDate)
-  }, [analysisDate, loadExceptions])
-
-  async function handleRunAnalysis() {
-    const requestedDate = analysisDate
-    setAnalysisRunning(true)
-    setAnalysisMessage(null)
-    try {
-      const result = await runAnalysis(requestedDate)
-      setAnalysisMessage(
-        result.alreadyCompleted
-          ? `${result.analysisDate} 분석은 이미 완료되어 있습니다.`
-          : `${result.analysisDate} 분석을 완료했습니다.`,
-      )
-      // Only refresh the list for the date just analyzed if it is still selected.
-      // If the user switched dates while this was in flight, the analysisDate-change
-      // effect already loaded the newly selected date's list; reloading here with
-      // the stale `requestedDate` would incorrectly overwrite it.
-      if (analysisDateRef.current === requestedDate) {
-        await loadExceptions(requestedDate)
-      }
-    } catch (error) {
-      setAnalysisMessage(error instanceof ApiError ? error.message : '분석 실행에 실패했습니다.')
-    } finally {
-      setAnalysisRunning(false)
-    }
+    api
+      .listExceptions(analysisRunId, nextFilters, controller.signal)
+      .then((result) => {
+        if (controller.signal.aborted) return
+        setPage(result)
+      })
+      .catch((e) => {
+        if (api.isAbortError(e)) return
+        setListError(e as ApiError)
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setListLoading(false)
+      })
   }
 
-  const loadDetail = useCallback(async (inventoryMetricId: number) => {
-    detailRequestRef.current?.abort()
-    const controller = new AbortController()
-    detailRequestRef.current = controller
+  // Retires the previous run's work context: aborts any in-flight list request and clears the
+  // run/list/page/detail state so the old queue/detail/decision form cannot stay interactive.
+  function retireWorkContext() {
+    listAbortRef.current?.abort()
+    setRun(null)
+    setFilters(DEFAULT_FILTERS)
+    setPage(null)
     setListError(null)
-    try {
-      const result = await getExceptionDetail(inventoryMetricId, controller.signal)
-      if (detailRequestRef.current !== controller) return
-      setDetail(result)
-      setSelectedId(inventoryMetricId)
-    } catch (error) {
-      if (isAbortError(error)) return
-      setListError(error instanceof ApiError ? error.message : '상세 정보를 불러오지 못했습니다.')
-    }
-  }, [])
-
-  function handleBackToList() {
-    detailRequestRef.current?.abort()
-    setSelectedId(null)
-    setDetail(null)
-    loadExceptions(analysisDate)
+    setSelectedMetricId(null)
   }
 
-  function handleRefreshDetail() {
-    if (selectedId !== null) {
-      loadDetail(selectedId)
+  // A brand-new launch must retire the prior work context immediately -- not only once it
+  // completes -- so the previous run's queue/detail/decision form cannot remain interactive while
+  // the new run is still launching or polling.
+  function handleRunStarting() {
+    retireWorkContext()
+  }
+
+  // A new/replayed COMPLETED run resets the previous list, page, selected metric/candidate and
+  // any pending decision -- per section 1. Closing the detail view (selectedMetricId -> null)
+  // never re-fetches the list; the previously loaded page stays exactly as it was.
+  function handleRunCompleted(nextRun: RunContext) {
+    retireWorkContext()
+    setRun(nextRun)
+    fetchList(nextRun.analysisRunId, DEFAULT_FILTERS)
+  }
+
+  function handleApplyFilters(next: ExceptionListFilters) {
+    setFilters(next)
+    setSelectedMetricId(null)
+    if (run) {
+      fetchList(run.analysisRunId, next)
+    }
+  }
+
+  function handleResetFilters() {
+    setFilters(DEFAULT_FILTERS)
+    setSelectedMetricId(null)
+    if (run) {
+      fetchList(run.analysisRunId, DEFAULT_FILTERS)
+    }
+  }
+
+  function handlePageChange(nextPage: number) {
+    const next = { ...filters, page: nextPage }
+    setFilters(next)
+    setSelectedMetricId(null)
+    if (run) {
+      fetchList(run.analysisRunId, next)
+    }
+  }
+
+  function retryList() {
+    if (run) {
+      fetchList(run.analysisRunId, filters)
     }
   }
 
   return (
-    <main className="shell">
-      <header className="app-header">
-        <h1 id="page-title">StockPilot</h1>
-        <p className="app-subtitle">
-          먼저 확인할 재고 문제와 매장 간 이동 대안을 빠르게 찾는 업무용 시스템
-          <span className="data-note">
-            {' '}· SYNTHETIC 데이터 · ASSUMPTION 데모 정책 · 실제 F&amp;F 정책 또는 검증된 산업 표준 아님
-          </span>
-        </p>
-      </header>
+    <div className="app">
+      <p className="app__banner">SYNTHETIC 데이터 · ASSUMPTION 데모 정책 · 실제 F&amp;F 정책 또는 검증된 산업 표준 아님</p>
+      <h1>StockPilot 재고 배분 워크벤치</h1>
 
-      <section className="panel" aria-labelledby="analysis-title">
-        <h2 id="analysis-title">분석 실행</h2>
-        <div className="form-row">
-          <label>
-            분석 기준일
-            <input
-              type="date"
-              value={analysisDate}
-              disabled={analysisRunning}
-              onChange={(event) => setAnalysisDate(event.target.value)}
+      <AnalysisContext onRunStarting={handleRunStarting} onRunCompleted={handleRunCompleted} />
+
+      {selectedMetricId === null && run && run.status === 'COMPLETED' && (
+        <>
+          <ExceptionFilters filters={filters} onApply={handleApplyFilters} onReset={handleResetFilters} />
+          {listLoading && (
+            <p role="status" aria-live="polite">
+              목록을 불러오는 중입니다…
+            </p>
+          )}
+          {listError && <ProblemAlert error={listError} onRetry={listError.retryable ? retryList : undefined} />}
+          {page && (
+            <ExceptionList
+              page={page}
+              onSelectMetric={setSelectedMetricId}
+              onPageChange={handlePageChange}
+              onResetFilters={handleResetFilters}
             />
-          </label>
-          <button type="button" onClick={handleRunAnalysis} disabled={analysisRunning}>
-            {analysisRunning ? '실행 중…' : '분석 실행'}
-          </button>
-        </div>
-        {analysisMessage && <p className="notice">{analysisMessage}</p>}
-      </section>
+          )}
+        </>
+      )}
 
-      <section className="panel" aria-labelledby="content-title">
-        <h2 id="content-title">{selectedId === null ? '재고 예외 목록' : '재고 예외 상세'}</h2>
-        {listError && <p className="error-text">{listError}</p>}
-        {selectedId === null ? (
-          listLoading ? (
-            <p className="notice">불러오는 중…</p>
-          ) : (
-            <ExceptionList exceptions={exceptions} onSelect={loadDetail} />
-          )
-        ) : (
-          detail && <ExceptionDetail detail={detail} onBack={handleBackToList} onRefresh={handleRefreshDetail} />
-        )}
-      </section>
-    </main>
+      {selectedMetricId !== null && (
+        <ExceptionDetail
+          inventoryMetricId={selectedMetricId}
+          onClose={() => setSelectedMetricId(null)}
+          actorLabel={actorLabel}
+          onActorLabelChange={persistActorLabel}
+        />
+      )}
+    </div>
   )
 }
+
+export default App

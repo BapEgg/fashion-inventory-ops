@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="760" viewBox="0 0 1600 760" role="img" aria-labelledby="title desc">
-  <title id="title">StockPilot MVP-2 목표 아키텍처</title>
-  <desc id="desc">합성 ERP POS WMS 입력에서 Oracle, Spring Batch 품질 검사와 수요 신호, 재고 예외, 이동 제약, 복수 시나리오, API, React 워크벤치, 사람의 결정과 ERP 이동지시 초안으로 이어지는 구조. AI는 계산 사실만 설명한다.</desc>
+  <title id="title">StockPilot MVP-2 아키텍처</title>
+  <desc id="desc">합성 ERP POS WMS 입력에서 Oracle, Spring Batch 품질 검사와 수요 신호, 재고 예외, 이동 제약, 복수 시나리오, API, React 워크벤치, 사람의 결정과 ERP 이동지시 초안으로 이어지는 구현·검증된 구조. AI는 계산 사실만 설명한다.</desc>
   <defs>
     <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="#334155"/></marker>
     <style>
@@ -8,8 +8,8 @@
     </style>
   </defs>
   <rect width="1600" height="760" fill="#ffffff"/>
-  <text x="55" y="52" class="title">StockPilot MVP-2 목표 아키텍처</text>
-  <text x="55" y="80" class="subtitle">MVP-1 Oracle·Batch·API·React 기준선은 보존하고, 파란 노드는 승인된 MVP-2 목표(미구현)입니다.</text>
+  <text x="55" y="52" class="title">StockPilot MVP-2 아키텍처</text>
+  <text x="55" y="80" class="subtitle">주황은 MVP-1부터 있던 구성요소, 파랑은 MVP-2에서 추가돼 구현·검증된 구성요소입니다.</text>
 
   <rect x="40" y="115" width="1520" height="180" rx="16" class="lane"/>
   <text x="65" y="145" class="lane-title">입력·결정론적 분석</text>
@@ -52,6 +52,6 @@
   <text x="975" y="634" class="label">금지: 수량·우선순위·상태 결정</text><text x="975" y="654" class="small">비활성 상태도 핵심 흐름 정상</text>
   <path d="M645 610 V540 H337 V481" class="edge dashed"/><path d="M775 639 H845" class="edge dashed"/>
 
-  <rect x="1195" y="720" width="20" height="14" class="current"/><text x="1225" y="732" class="legend">MVP-1 구현 기준선</text>
-  <rect x="1360" y="720" width="20" height="14" class="target"/><text x="1390" y="732" class="legend">승인된 MVP-2 목표(미구현)</text>
+  <rect x="1195" y="720" width="20" height="14" class="current"/><text x="1225" y="732" class="legend">MVP-1부터 있던 구성요소</text>
+  <rect x="1360" y="720" width="20" height="14" class="target"/><text x="1390" y="732" class="legend">MVP-2에서 추가돼 구현된 구성요소</text>
 </svg>

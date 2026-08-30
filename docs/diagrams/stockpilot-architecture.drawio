@@ -1,76 +1,37 @@
-<mxfile host="app.diagrams.net" modified="2026-08-25T00:00:00.000Z" agent="Codex" version="26.0.16" type="device" compressed="false">
-  <diagram id="stockpilot-architecture" name="StockPilot Architecture">
-    <mxGraphModel dx="1500" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="900" math="0" shadow="0">
+<mxfile host="app.diagrams.net" modified="2026-08-25T12:00:00.000Z" agent="Codex" version="24.7.17">
+  <diagram id="stockpilot-mvp2-architecture" name="StockPilot MVP-2 Architecture">
+    <mxGraphModel dx="1600" dy="760" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="760" math="0" shadow="0">
       <root>
-        <mxCell id="0"/>
-        <mxCell id="1" parent="0"/>
-
-        <mxCell id="local" value="Local Host  ·  빠른 개발·디버깅" style="swimlane;horizontal=1;startSize=40;rounded=1;fillColor=#f8fafc;strokeColor=#94a3b8;strokeWidth=2;fontStyle=1;fontSize=16;" vertex="1" parent="1">
-          <mxGeometry x="180" y="45" width="870" height="790" as="geometry"/>
-        </mxCell>
-        <mxCell id="docker" value="Docker Compose  ·  유일한 서버 인프라" style="swimlane;horizontal=1;startSize=40;rounded=1;fillColor=#eff6ff;strokeColor=#60a5fa;strokeWidth=2;fontStyle=1;fontSize=16;" vertex="1" parent="1">
-          <mxGeometry x="1090" y="240" width="370" height="520" as="geometry"/>
-        </mxCell>
-
-        <mxCell id="actor" value="재고 담당자" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;fontSize=15;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="45" y="330" width="80" height="110" as="geometry"/>
-        </mxCell>
-        <mxCell id="frontend" value="React 업무 화면&#xa;React 19 · TypeScript · Vite&#xa;────────────────────&#xa;재고 예외 목록&#xa;상세 계산 근거&#xa;수량 시뮬레이션&#xa;&#xa;[기반 구현 / 화면 구현 예정]" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=16;fontSize=13;fillColor=#ffffff;strokeColor=#2563eb;strokeWidth=2;" vertex="1" parent="1">
-          <mxGeometry x="225" y="160" width="255" height="245" as="geometry"/>
-        </mxCell>
-        <mxCell id="env" value="로컬 설정&#xa;ignored root .env&#xa;DB 접속 · 선택적 LLM 설정" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=16;fontSize=13;fillColor=#ffffff;strokeColor=#94a3b8;" vertex="1" parent="1">
-          <mxGeometry x="225" y="475" width="255" height="115" as="geometry"/>
-        </mxCell>
-        <mxCell id="seed" value="Schema · Seed&#xa;CSV 검증 → Flyway SQL&#xa;[구현 완료]" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=16;fontSize=13;fillColor=#eff6ff;strokeColor=#2563eb;strokeWidth=2;" vertex="1" parent="1">
-          <mxGeometry x="225" y="650" width="255" height="125" as="geometry"/>
-        </mxCell>
-
-        <mxCell id="backend" value="Spring Boot Backend  ·  Java 21  ·  localhost:8080" style="swimlane;horizontal=1;startSize=40;rounded=1;fillColor=#ffffff;strokeColor=#7c3aed;strokeWidth=2;fontStyle=1;fontSize=16;" vertex="1" parent="1">
-          <mxGeometry x="525" y="110" width="485" height="665" as="geometry"/>
-        </mxCell>
-        <mxCell id="api" value="REST API&#xa;분석 · 조회 · 결정&#xa;[구현 예정]" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=14;fontSize=13;fillColor=#faf5ff;strokeColor=#7c3aed;" vertex="1" parent="1">
-          <mxGeometry x="560" y="190" width="190" height="105" as="geometry"/>
-        </mxCell>
-        <mxCell id="rules" value="Java 업무 규칙&#xa;예외 · 우선순위 · 수량&#xa;[구현 예정]" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=14;fontSize=13;fillColor=#faf5ff;strokeColor=#7c3aed;" vertex="1" parent="1">
-          <mxGeometry x="790" y="190" width="185" height="105" as="geometry"/>
-        </mxCell>
-        <mxCell id="batch" value="Spring Batch&#xa;반복 가능한 일괄 분석&#xa;[구현 예정]" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=14;fontSize=13;fillColor=#faf5ff;strokeColor=#7c3aed;" vertex="1" parent="1">
-          <mxGeometry x="560" y="350" width="190" height="105" as="geometry"/>
-        </mxCell>
-        <mxCell id="jpa" value="JPA 영속성&#xa;도메인 저장 · 조회&#xa;[구현 예정]" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=14;fontSize=13;fillColor=#faf5ff;strokeColor=#7c3aed;" vertex="1" parent="1">
-          <mxGeometry x="790" y="350" width="185" height="105" as="geometry"/>
-        </mxCell>
-        <mxCell id="flyway" value="Flyway&#xa;Schema · Seed · Batch 메타&#xa;[검증 완료]" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=14;fontSize=13;fillColor=#eff6ff;strokeColor=#2563eb;strokeWidth=2;" vertex="1" parent="1">
-          <mxGeometry x="560" y="510" width="190" height="105" as="geometry"/>
-        </mxCell>
-        <mxCell id="adapter" value="LLM Adapter&#xa;Java 결과 설명만 담당&#xa;[기본 비활성]" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=14;fontSize=13;fillColor=#f8fafc;strokeColor=#64748b;dashed=1;" vertex="1" parent="1">
-          <mxGeometry x="790" y="510" width="185" height="105" as="geometry"/>
-        </mxCell>
-        <mxCell id="principle" value="결정 원칙&#xa;수량·상태 계산은 Java, LLM은 자연어 설명만 수행&#xa;인증·Redis·Kafka·별도 서버는 MVP 범위에서 제외" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=14;fontSize=13;fillColor=#ffffff;strokeColor=#cbd5e1;" vertex="1" parent="1">
-          <mxGeometry x="560" y="665" width="415" height="85" as="geometry"/>
-        </mxCell>
-
-        <mxCell id="llm" value="외부 LLM Provider&#xa;API Key 제공 후 연결&#xa;[추후 선택]" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=16;fontSize=13;fillColor=#f8fafc;strokeColor=#64748b;dashed=1;" vertex="1" parent="1">
-          <mxGeometry x="1125" y="65" width="300" height="125" as="geometry"/>
-        </mxCell>
-        <mxCell id="oracle" value="Oracle Database Free 23ai&#xa;FREEPDB1 · localhost:1521&#xa;Domain Schema · Batch Metadata&#xa;[검증 완료]" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;align=center;verticalAlign=middle;fontSize=14;fontStyle=1;fillColor=#ffffff;strokeColor=#2563eb;strokeWidth=2;" vertex="1" parent="1">
-          <mxGeometry x="1130" y="320" width="300" height="245" as="geometry"/>
-        </mxCell>
-        <mxCell id="volume" value="Docker Volume&#xa;oracle-data · 데이터 유지" style="shape=folder;tabWidth=60;tabHeight=20;tabPosition=left;html=1;whiteSpace=wrap;align=center;fontSize=13;fillColor=#ffffff;strokeColor=#2563eb;" vertex="1" parent="1">
-          <mxGeometry x="1165" y="630" width="230" height="90" as="geometry"/>
-        </mxCell>
-
-        <mxCell id="f-user-ui" value="업무 사용" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#2563eb;strokeWidth=2;" edge="1" parent="1" source="actor" target="frontend"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="f-ui-api" value="HTTP" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#2563eb;strokeWidth=2;" edge="1" parent="1" source="frontend" target="api"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="f-api-rules" value="호출" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#2563eb;strokeWidth=2;" edge="1" parent="1" source="api" target="rules"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="f-batch-rules" value="분석" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#2563eb;strokeWidth=2;" edge="1" parent="1" source="batch" target="rules"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="f-rules-jpa" value="저장 모델" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#2563eb;strokeWidth=2;" edge="1" parent="1" source="rules" target="jpa"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="f-jpa-oracle" value="JDBC" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#2563eb;strokeWidth=2;" edge="1" parent="1" source="jpa" target="oracle"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="f-seed-flyway" value="버전 적용" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#2563eb;strokeWidth=2;" edge="1" parent="1" source="seed" target="flyway"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="f-flyway-oracle" value="Migration" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#2563eb;strokeWidth=2;" edge="1" parent="1" source="flyway" target="oracle"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="f-rules-adapter" value="계산 결과" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#64748b;strokeWidth=2;dashed=1;" edge="1" parent="1" source="rules" target="adapter"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="f-adapter-llm" value="설명 요청" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#64748b;strokeWidth=2;dashed=1;" edge="1" parent="1" source="adapter" target="llm"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="f-oracle-volume" value="영속 저장" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#64748b;strokeWidth=2;" edge="1" parent="1" source="oracle" target="volume"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="0"/><mxCell id="1" parent="0"/>
+        <mxCell id="title" value="StockPilot MVP-2 아키텍처" style="text;html=1;fontSize=28;fontStyle=1;align=left;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="40" y="25" width="600" height="40" as="geometry"/></mxCell>
+        <mxCell id="note" value="주황: MVP-1부터 있던 구성요소 / 파랑: MVP-2에서 추가돼 구현된 구성요소" style="text;html=1;fontSize=14;fontColor=#475569;align=left;" vertex="1" parent="1"><mxGeometry x="40" y="65" width="650" height="30" as="geometry"/></mxCell>
+        <mxCell id="lane1" value="입력·결정론적 분석" style="swimlane;html=1;rounded=1;startSize=35;fillColor=#f8fafc;strokeColor=#cbd5e1;fontStyle=1;horizontal=1;" vertex="1" parent="1"><mxGeometry x="40" y="110" width="1520" height="185" as="geometry"/></mxCell>
+        <mxCell id="source" value="&lt;b&gt;합성 업무 입력&lt;/b&gt;&lt;br&gt;ERP · POS · WMS 경계" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#64748b;strokeWidth=2;" vertex="1" parent="lane1"><mxGeometry x="30" y="65" width="170" height="80" as="geometry"/></mxCell>
+        <mxCell id="oracle" value="&lt;b&gt;Oracle&lt;/b&gt;&lt;br&gt;원본 · 결과 · 감사" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#ea580c;strokeWidth=2;" vertex="1" parent="lane1"><mxGeometry x="245" y="65" width="150" height="80" as="geometry"/></mxCell>
+        <mxCell id="batch" value="&lt;b&gt;Spring Batch&lt;/b&gt;&lt;br&gt;버전·멱등 실행" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#ea580c;strokeWidth=2;" vertex="1" parent="lane1"><mxGeometry x="440" y="65" width="150" height="80" as="geometry"/></mxCell>
+        <mxCell id="quality" value="&lt;b&gt;품질·관측&lt;/b&gt;&lt;br&gt;누락 · OOS · 최신성" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;strokeWidth=2;" vertex="1" parent="lane1"><mxGeometry x="635" y="65" width="150" height="80" as="geometry"/></mxCell>
+        <mxCell id="signal" value="&lt;b&gt;수요 신호&lt;/b&gt;&lt;br&gt;유형 · 신뢰도" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;strokeWidth=2;" vertex="1" parent="lane1"><mxGeometry x="830" y="65" width="150" height="80" as="geometry"/></mxCell>
+        <mxCell id="exception" value="&lt;b&gt;재고 예외&lt;/b&gt;&lt;br&gt;심각도 · 정렬 키" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;strokeWidth=2;" vertex="1" parent="lane1"><mxGeometry x="1025" y="65" width="150" height="80" as="geometry"/></mxCell>
+        <mxCell id="scenario" value="&lt;b&gt;제약·시나리오&lt;/b&gt;&lt;br&gt;후보 · low/base/high" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;strokeWidth=2;" vertex="1" parent="lane1"><mxGeometry x="1220" y="65" width="160" height="80" as="geometry"/></mxCell>
+        <mxCell id="e1" edge="1" parent="lane1" source="source" target="oracle" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=block;strokeColor=#334155;strokeWidth=2;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e2" edge="1" parent="lane1" source="oracle" target="batch" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=block;strokeColor=#334155;strokeWidth=2;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e3" edge="1" parent="lane1" source="batch" target="quality" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=block;strokeColor=#334155;strokeWidth=2;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e4" edge="1" parent="lane1" source="quality" target="signal" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=block;strokeColor=#334155;strokeWidth=2;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e5" edge="1" parent="lane1" source="signal" target="exception" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=block;strokeColor=#334155;strokeWidth=2;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e6" edge="1" parent="lane1" source="exception" target="scenario" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=block;strokeColor=#334155;strokeWidth=2;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="lane2" value="검토·결정·외부 실행 경계" style="swimlane;html=1;rounded=1;startSize=35;fillColor=#f8fafc;strokeColor=#cbd5e1;fontStyle=1;horizontal=1;" vertex="1" parent="1"><mxGeometry x="40" y="325" width="1520" height="205" as="geometry"/></mxCell>
+        <mxCell id="api" value="&lt;b&gt;Spring REST API&lt;/b&gt;&lt;br&gt;조회 · 계산 · 결정" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#ea580c;strokeWidth=2;" vertex="1" parent="lane2"><mxGeometry x="210" y="70" width="175" height="85" as="geometry"/></mxCell>
+        <mxCell id="ui" value="&lt;b&gt;React 워크벤치&lt;/b&gt;&lt;br&gt;목록 · 상세 · 비교" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#ea580c;strokeWidth=2;" vertex="1" parent="lane2"><mxGeometry x="460" y="70" width="175" height="85" as="geometry"/></mxCell>
+        <mxCell id="human" value="&lt;b&gt;담당자 판단&lt;/b&gt;&lt;br&gt;보류 · 승인 · 거절" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0fdf4;strokeColor=#16a34a;strokeWidth=2;" vertex="1" parent="lane2"><mxGeometry x="710" y="70" width="175" height="85" as="geometry"/></mxCell>
+        <mxCell id="draft" value="&lt;b&gt;이동지시 초안&lt;/b&gt;&lt;br&gt;실제 재고 변경 없음" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#2563eb;strokeWidth=2;" vertex="1" parent="lane2"><mxGeometry x="960" y="70" width="175" height="85" as="geometry"/></mxCell>
+        <mxCell id="erp" value="&lt;b&gt;ERP · WMS · TMS&lt;/b&gt;&lt;br&gt;실제 실행 책임" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#64748b;strokeWidth=2;" vertex="1" parent="lane2"><mxGeometry x="1210" y="70" width="175" height="85" as="geometry"/></mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="scenario" target="api" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=block;strokeColor=#334155;strokeWidth=2;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e8" edge="1" parent="lane2" source="api" target="ui" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=block;strokeColor=#334155;strokeWidth=2;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e9" edge="1" parent="lane2" source="ui" target="human" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=block;strokeColor=#334155;strokeWidth=2;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e10" edge="1" parent="lane2" source="human" target="draft" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=block;strokeColor=#334155;strokeWidth=2;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e11" edge="1" parent="lane2" source="draft" target="erp" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=block;dashed=1;strokeColor=#334155;strokeWidth=2;"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ai" value="&lt;b&gt;선택적 AI 설명&lt;/b&gt;&lt;br&gt;계산 사실만 입력 · 수량/상태 변경 금지" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#faf5ff;strokeColor=#9333ea;strokeWidth=2;dashed=1;" vertex="1" parent="1"><mxGeometry x="560" y="590" width="480" height="80" as="geometry"/></mxCell>
+        <mxCell id="e12" edge="1" parent="1" source="api" target="ai" style="edgeStyle=orthogonalEdgeStyle;rounded=0;endArrow=block;dashed=1;strokeColor=#9333ea;strokeWidth=2;"><mxGeometry relative="1" as="geometry"/></mxCell>
       </root>
     </mxGraphModel>
   </diagram>

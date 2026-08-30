@@ -30,16 +30,16 @@ public record RebalanceCalculation(
             int donorSoldQuantityInWindow,
             int donorAvailableQuantity
     ) {
-        int receiverTargetQuantity = ceilDiv(
-                receiverSoldQuantityInWindow * InventoryAnalysisRules.RECEIVER_TARGET_COVERAGE_DAYS,
-                InventoryAnalysisRules.OBSERVATION_WINDOW_DAYS)
-                + InventoryAnalysisRules.SAFETY_STOCK_UNITS;
+        int receiverTargetQuantity = Math.toIntExact(
+                ceilDiv((long) receiverSoldQuantityInWindow * InventoryAnalysisRules.RECEIVER_TARGET_COVERAGE_DAYS,
+                        InventoryAnalysisRules.OBSERVATION_WINDOW_DAYS)
+                        + InventoryAnalysisRules.SAFETY_STOCK_UNITS);
         int receiverShortageQuantity = Math.max(receiverTargetQuantity - receiverAvailableQuantity, 0);
 
-        int donorRetainedQuantity = ceilDiv(
-                donorSoldQuantityInWindow * InventoryAnalysisRules.DONOR_RETAINED_COVERAGE_DAYS,
-                InventoryAnalysisRules.OBSERVATION_WINDOW_DAYS)
-                + InventoryAnalysisRules.SAFETY_STOCK_UNITS;
+        int donorRetainedQuantity = Math.toIntExact(
+                ceilDiv((long) donorSoldQuantityInWindow * InventoryAnalysisRules.DONOR_RETAINED_COVERAGE_DAYS,
+                        InventoryAnalysisRules.OBSERVATION_WINDOW_DAYS)
+                        + InventoryAnalysisRules.SAFETY_STOCK_UNITS);
         int donorTransferableQuantity = Math.max(donorAvailableQuantity - donorRetainedQuantity, 0);
 
         int recommendedQuantity = Math.min(receiverShortageQuantity, donorTransferableQuantity);
@@ -49,8 +49,15 @@ public record RebalanceCalculation(
         return Optional.of(new RebalanceCalculation(receiverShortageQuantity, donorTransferableQuantity, recommendedQuantity));
     }
 
-    /** Exact ceiling division for non-negative numerator and positive denominator. */
-    private static int ceilDiv(int numerator, int denominator) {
+    /**
+     * Exact ceiling division for a non-negative numerator and positive denominator,
+     * kept in {@code long} so neither the division nor the caller's subsequent
+     * {@code + SAFETY_STOCK_UNITS} can silently wrap a 32-bit {@code int}. The caller
+     * converts to {@code int} exactly once, via {@link Math#toIntExact}, after that
+     * addition — so an out-of-{@code int}-range target/retained quantity throws
+     * rather than truncates.
+     */
+    private static long ceilDiv(long numerator, long denominator) {
         return (numerator + denominator - 1) / denominator;
     }
 }

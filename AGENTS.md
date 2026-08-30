@@ -6,6 +6,7 @@
 2. `knowledge/state/current-task.md`에서 현재 역할과 목표를 확인한다.
 3. 현재 작업에 필요한 문서만 선택적으로 읽는다.
 4. 의미 있는 작업 종료 또는 역할 인계 시 `.agents/skills/stockpilot-worklog/SKILL.md`를 사용한다.
+5. MVP/Phase 완료 또는 hot-state 크기 초과 시 `.agents/skills/stockpilot-checkpoint/SKILL.md`로 원본을 보존하고 상태를 압축한다.
 
 전체 `knowledge` 폴더를 매번 읽지 않는다.
 
@@ -25,6 +26,8 @@
 - 실행하지 않은 테스트를 성공했다고 기록하지 않는다.
 - 기능별 빈 폴더나 미래용 문서를 미리 만들지 않는다.
 - 공식 문서와 코드가 충돌하면 실제 코드, DB Migration, 설정과 테스트 결과를 우선한다.
+- `current-task.md`와 `implemented-state.md`에는 현재 사실만 유지한다. 완료된 수정·리뷰 과정은 Worklog에만 기록하고 state에 append하지 않는다.
+- `knowledge/archive`는 회귀 원인 조사나 감사가 필요할 때만 읽으며 기본 Resume 대상에 포함하지 않는다.
 
 ## 변경 중단 조건
 

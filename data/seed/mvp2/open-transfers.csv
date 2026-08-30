@@ -1,0 +1,2 @@
+transfer_reference,donor_store_id,receiver_store_id,sku_id,quantity,eta_at,transfer_status,input_snapshot_version,source_type
+TRANSFER-MVP2-GS01,STORE-MVP2-DONOR-A,STORE-MVP2-RECEIVER-A,SKU-MVP2-GS01-STABLE,2,2026-10-01T09:00:00+09:00,APPROVED,MVP-2-GS-V1,SYNTHETIC

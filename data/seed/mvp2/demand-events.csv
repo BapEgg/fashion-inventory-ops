@@ -1,0 +1,2 @@
+event_code,event_type,store_id,sku_id,start_date,end_date,uplift_low,uplift_base,uplift_high,input_snapshot_version,source_type,assumption_type
+EVENT-MVP2-GS02,PROMOTION,STORE-MVP2-RECEIVER-A,SKU-MVP2-GS02-EVENT,2026-09-29,2026-10-07,1.20,1.50,1.80,MVP-2-GS-V1,SYNTHETIC,ASSUMPTION

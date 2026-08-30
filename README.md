@@ -1,254 +1,223 @@
 # StockPilot
 
-> 패션 상품의 판매·재고 데이터를 분석해 **먼저 확인할 재고 예외와 매장 간 이동 대안**을 제시하는 재고 운영 의사결정 지원 시스템
+> 패션 리테일 재고 배분 담당자가 **수요 신호와 데이터 신뢰도를 확인하고, 실행
+> 가능한 재배분 시나리오를 비교**하도록 돕는 재고 예외 검토 및 재배분
+> 의사결정 워크벤치
 
-## 프로젝트 개요
+패션 리테일은 상품·색상·사이즈와 매장 조합이 많아 모든 재고 위치를 같은
+깊이로 검토하기 어렵습니다. 단순 기간 평균만 보면 하루의 대량구매를
+반복수요로 오인하거나, 품절로 판매가 멈춘 상품을 무수요로 오인할 수
+있습니다. StockPilot은 수요를 정확히 예언하거나 이동을 자동 집행하지
+않습니다. 담당자가 오늘 볼 대상을 줄이고, 다음 판단에 필요한 근거를
+한 화면에 모읍니다.
 
-| 항목 | 내용 |
-|---|---|
-| 프로젝트 주제 | 패션 재고 예외 탐지·재배분 의사결정 지원 |
-| 대상 사용자 | 상품·재고 운영 담당자, 매장 배분 담당자 |
-| 핵심 문제 | 많은 SKU와 매장 중 어떤 재고 문제를 먼저 확인하고 어디에서 재고를 가져올지 빠르게 판단하기 어렵다. |
-| 해결 방식 | Oracle의 판매·재고 데이터를 Batch로 분석하고, Java가 계산한 이동 대안을 화면에서 비교·승인·거절한다. |
-| 개발 범위 | 1~2일 MVP, 하나의 Golden Scenario를 처음부터 끝까지 구현 |
-| 데이터 | 실제 기업 데이터가 아닌 `SYNTHETIC` 데모 데이터 |
-| 업무 정책 | 실제 기업 정책이 아닌 `ASSUMPTION` 가정값 |
+> `SYNTHETIC` 데이터 · `ASSUMPTION` 데모 정책 · 실제 F&F 정책 또는 검증된
+> 산업 표준이 아님
 
-StockPilot은 전체 ERP나 실제 물류 실행 시스템을 만드는 프로젝트가 아닙니다. 담당자가 매일 확인해야 할 재고 예외를 줄이고, 계산 근거가 있는 의사결정을 지원하는 작은 업무 시스템입니다.
+## 실제 워크벤치 화면
 
-## 대상 사용자가 겪는 문제
+![StockPilot 재고 배분 워크벤치 — 재고 예외 큐](docs/images/stockpilot-workbench.png)
 
-재고 담당자는 모든 상품과 매장을 한 건씩 확인할 수 없습니다.
-
-- 한 매장에서는 곧 품절될 상품이 있다.
-- 다른 매장에는 같은 상품이 판매되지 않은 채 쌓여 있다.
-- 이동할 수량을 잘못 정하면 품절 문제를 해결하지 못하거나 출발 매장에 새로운 부족이 생긴다.
-- 담당자가 왜 해당 수량을 선택했는지 기록이 남아야 한다.
-
-StockPilot은 **탐지 → 추천 → 시뮬레이션 → 결정 기록**을 하나의 업무 흐름으로 연결합니다.
-
-## 주요 기능
-
-| 기능 | 설명 |
-|---|---|
-| Oracle Seed | 버전 관리되는 합성 상품·매장·재고·판매 데이터를 Oracle에 적재 |
-| Batch 분석 | 같은 분석일과 규칙 버전으로 중복 결과가 생기지 않는 재고 분석 |
-| 예외 탐지 | 재고 보유일수를 기준으로 품절 위험과 과잉재고 분류 |
-| 우선순위 | 담당자가 먼저 확인할 품절 위험을 `CRITICAL`, `HIGH`로 구분 |
-| 재배분 추천 | 같은 SKU의 수요 매장과 공급 가능 매장을 연결하고 이동 수량 계산 |
-| 시뮬레이션 | 사용자가 수량을 바꿔 이동 전후 양쪽 매장의 재고 보유일수 비교 |
-| 승인·거절 | 선택 수량, 상태, 사유, 담당자 표시와 시각을 감사 이력으로 보존 |
-| AI 설명 | Java가 계산한 결과만 자연어로 설명하며 수량과 상태를 결정하지 않음 |
-
-## Golden Scenario
-
-분석 기준일은 `2026-08-25`이고 대상 SKU는 `SKU-CAP-BLACK-FREE`입니다.
-
-| 매장 | 판매 가능 재고 | 최근 7일 판매 | 일평균 판매 | 재고 보유일수 | 판정 |
-|---|---:|---:|---:|---:|---|
-| 강남 | 5 | 28 | 4.00 | 1.25일 | 품절 위험 |
-| 홍대 | 40 | 4 | 0.57 | 70.00일 | 과잉재고 |
-| 성수 | 11 | 9 | 1.29 | 8.56일 | 정상 |
-
-업무 규칙에 따라 홍대에서 강남으로 **25개 이동**하는 대안을 추천합니다. 숫자는 [`knowledge/business-rules.md`](knowledge/business-rules.md)의 데모 가정에서 계산되며 실제 기업 정책이 아닙니다.
-
-## 업무 프로세스
-
-```mermaid
-flowchart LR
-    A[합성 재고·판매 적재] --> B[Batch 분석 실행]
-    B --> C[품절·과잉 예외 탐지]
-    C --> D[동일 SKU 공급 매장 탐색]
-    D --> E[추천 이동 수량 계산]
-    E --> F[사용자 수량 시뮬레이션]
-    F --> G{담당자 판단}
-    G -->|승인| H[승인 수량·사유 기록]
-    G -->|거절| I[거절 사유 기록]
-    E -. 선택 .-> J[AI 자연어 설명]
-```
-
-## 시스템 아키텍처
-
-Backend와 Frontend는 빠른 수정과 디버깅을 위해 로컬에서 실행합니다. 데이터베이스만 Docker로 격리해 PC마다 같은 Oracle 환경을 사용합니다.
-
-로컬 DB는 Oracle Database Free를 담은 커뮤니티 유지보수 이미지 [`gvenzl/oracle-free:23.26.2-slim-faststart`](https://github.com/gvenzl/oci-oracle-free/blob/main/README.md)를 사용합니다. 개발 환경이 예고 없이 바뀌지 않도록 `latest` 대신 검증한 버전을 고정했습니다.
-
-![StockPilot MVP 시스템 아키텍처](docs/diagrams/stockpilot-architecture.svg)
-
-[draw.io 편집 원본](docs/diagrams/stockpilot-architecture.drawio) · [SVG 원본](docs/diagrams/stockpilot-architecture.svg)
-
-수정할 때는 [diagrams.net](https://app.diagrams.net/)에서 `File → Open from → Device`를 선택하고 `.drawio` 파일을 열면 됩니다.
-
-MVP에는 Redis, Kafka, 별도 인증 서버가 필요하지 않습니다. 필요한 서버가 추가되는 경우에만 Compose 서비스로 확장합니다.
-
-## ERD
-
-원본 데이터, Batch 계산 결과, 담당자 결정을 분리해 규칙이 바뀌어도 과거 판단의 근거를 추적할 수 있습니다.
-
-![StockPilot 도메인 ERD](docs/diagrams/stockpilot-erd.svg)
-
-[draw.io 편집 원본](docs/diagrams/stockpilot-erd.drawio) · [SVG 원본](docs/diagrams/stockpilot-erd.svg)
-
-업무 테이블 8개와 컬럼 54개에는 Oracle Comment를 적용했습니다. 일반 항목은 `상품명`, `판매일`, `재고 보유일수`처럼 짧은 명사형으로 기록하고 코드 항목만 허용값과 의미를 함께 표시합니다.
-
-컬럼, 제약조건과 데이터 적재 절차는 [`knowledge/data-model.md`](knowledge/data-model.md)에 기록합니다. Spring Batch 자체 메타데이터 테이블은 업무 ERD에서 제외했습니다.
-
-## 데이터 수집·적재 절차
-
-현재 MVP는 외부 사이트를 크롤링하거나 실제 기업 데이터를 수집하지 않습니다.
-
-```mermaid
-flowchart LR
-    A[Golden Scenario 정의] --> B[SYNTHETIC CSV 작성]
-    B --> C[Header·중복·참조·수량 검증]
-    C --> D[Flyway Seed SQL 확정]
-    D --> E[Oracle 적재]
-    E --> F[행 수·기대값 확인]
-    F --> G[Batch 분석]
-```
-
-- 원본: `data/seed/*.csv`
-- 자동 검증: `scripts/validate-seed.ps1`
-- Schema: `V1__create_stockpilot_schema.sql`
-- Seed: `V2__load_synthetic_seed.sql`
-- Spring Batch 메타데이터: `V3__create_spring_batch_metadata.sql`
-- 테이블·컬럼 Comment: `V4__add_domain_comments.sql`
-
-적용된 Migration은 수정하지 않고 변경이 필요하면 다음 버전 파일을 추가합니다.
-
-## 핵심 설계 결정
-
-### 계산과 AI의 책임 분리
-
-판매 가능 재고, 일평균 판매량, 재고 보유일수, 예외 분류와 추천 수량은 Java가 같은 입력에 같은 결과를 내도록 계산합니다. AI는 이 결과를 읽기 쉽게 설명할 수 있지만 수량 생성, 승인 변경 또는 DB 직접 쓰기를 할 수 없습니다.
-
-### Oracle을 실제 검증 대상으로 사용
-
-H2로 대체하지 않습니다. Oracle 고유 SQL, 제약조건과 Flyway Migration을 Docker의 Oracle Database Free에서 검증합니다.
-
-### 원본·계산·판단 분리
-
-재고와 판매는 원본 근거, `SP_INVENTORY_METRIC`은 규칙 버전별 계산 결과, `SP_REBALANCE_DECISION`은 사람의 최종 판단을 보존합니다.
-
-### 작은 Vertical Slice
-
-마이크로서비스와 복잡한 인프라 대신 하나의 SKU와 세 매장으로 전체 흐름이 끝까지 동작하는 것을 완료 기준으로 삼습니다.
-
-## 기술 스택
-
-| 영역 | 기술 | 선택 이유 |
-|---|---|---|
-| Backend | Java 21, Spring Boot 4.1 | 명시적인 업무 규칙과 엔터프라이즈 REST API |
-| Batch | Spring Batch 6 | 분석 실행 이력과 재시작 가능한 처리 구조 |
-| Persistence | Spring Data JPA, Oracle JDBC | 트랜잭션과 관계형 데이터 무결성 |
-| Schema | Spring Boot Flyway Starter, Flyway Oracle | Schema·Seed·Batch 테이블 변경 이력 관리 |
-| Database | Oracle Database Free 23ai (`23.26.2`) | 실제 Oracle SQL과 제약조건 검증 |
-| Frontend | React 19, TypeScript 5.9, Vite 8 | 예외 목록과 시뮬레이션 중심의 작은 업무 UI |
-| Test | JUnit 5 | 계산 규칙 단위 테스트와 Oracle 통합 검증 |
-| Local infra | Docker Compose | Oracle 버전과 데이터 볼륨 재현 |
-
-## 프로젝트 구조
+담당자는 다음 5단계로 하나의 예외를 검토·결정합니다.
 
 ```text
-fashion-inventory-ops/
-├─ README.md                         포트폴리오와 실행 안내
-├─ compose.yml                       Oracle Database 로컬 인프라
-├─ .env.example                      DB·AI 설정 템플릿
-├─ scripts/
-│  ├─ local.ps1                      설정·DB·앱 실행 명령
-│  └─ validate-seed.ps1              합성 데이터 검증
-├─ backend/
-│  ├─ build.gradle.kts
-│  └─ src/main/resources/
-│     ├─ application.yml
-│     └─ db/migration/               Oracle Schema·Seed·Batch Migration
-├─ frontend/                         React 업무 화면
-├─ data/seed/                        버전 관리되는 합성 CSV
-├─ docs/diagrams/                    README용 SVG와 draw.io 편집 원본
-├─ knowledge/
-│  ├─ project.md                     제품 범위와 완료 조건
-│  ├─ business-rules.md              계산식과 데모 가정값
-│  ├─ data-model.md                  상세 ERD와 데이터 적재 절차
-│  ├─ state/                         현재 작업과 실제 구현 상태
-│  └─ worklogs/                      역할 간 압축 인계 기록
-└─ .agents/skills/                   최소 문서 재개·인계 절차
+분석 실행/재사용
+  → 재고 예외 큐 필터·우선순위 확인
+  → 28일 근거·품질·후보·자동 시나리오 검토
+  → 부작용 없는 MANUAL 수량 시험
+  → 보류·승인·거절 결정과 ERP 이동지시 초안
 ```
+
+## 제품 경계
+
+| 항목 | 정의 |
+|---|---|
+| 핵심 사용자 | 본사 재고 배분·보충 담당자(Allocator/Replenishment Planner) |
+| StockPilot | 데이터 검사, 검토 대상 축소, 결정론적 계산, 제약 확인, 시나리오 비교, ERP 이동지시 초안 |
+| 사람 | 맥락 확인, 최종 수량 수정, 보류·승인·거절 |
+| ERP/WMS/TMS | 실제 이동지시 접수, 피킹·출고·운송·입고 |
+| AI | Java가 계산한 사실의 선택적 설명; 수량·우선순위·상태 결정 금지 |
+
+- 품절 **예측**이 아니라 품절 위험 **신호 탐지**입니다.
+- 최적 이동량이 아니라 복수 재배분 **시나리오 비교**입니다.
+- 판단 자동화가 아니라 **판단 준비 자동화**입니다.
+- 실제 물류 시스템이 아니라 **ERP 이동지시 초안**까지 다룹니다.
+- 인증/인가, 담당자별 지점 배정, 실시간 배송 위치 추적은 범위 밖입니다.
+
+## 구현된 기능
+
+- **분석 실행/재사용**: 분석일·입력 스냅샷 버전으로 Spring Batch를 시작하고
+  `RUNNING`/`COMPLETED`/`FAILED` 상태를 폴링합니다. 동일 조합 재요청은 기존
+  결과를 재사용합니다.
+- **재고 예외 큐**: run에 결합된 목록을 예외 유형·심각도·수요 신호·신뢰도·
+  품질 경고·실행 가능한 후보 유무로 필터링하고 페이지네이션합니다.
+- **예외 상세**: store-SKU의 28일 판매·재고 근거, 이벤트·입고·진행 중 이동,
+  적용 정책과 분류 근거를 문서형 화면으로 제공합니다.
+- **공급 후보와 자동 시나리오**: 후보별 통과/탈락 사유와 무조치·보수적·
+  기준·공격적 네 시나리오의 양쪽 매장 결과를 비교합니다.
+- **MANUAL 수량 시험**: 부작용 없이 임의 수량의 실행 가능 여부와 위반 사유,
+  최대 가능수량을 계산합니다.
+- **보류·승인·거절**: `Idempotency-Key` 기반으로 결정을 저장하고, 승인 시
+  최신 근거를 재검증한 뒤 `SP_TRANSFER_DRAFT`(ERP 이동지시 초안)를 생성합니다.
+  실제 재고나 외부 ERP는 변경하지 않습니다.
+- **결정 이력**: sequence 오름차순 감사 이력과 승인 근거·이동지시 초안
+  상세를 조회합니다.
+- **AI 설명 경계**: 설명 endpoint는 현재 구성에서 항상 `AI_DISABLED`/
+  `AI_UNCONFIGURED`/`AI_PROVIDER_NOT_IMPLEMENTED` 중 하나의 안전한 미사용
+  응답을 반환합니다. 실제 provider adapter가 없어 지금은 생성된 설명을
+  내려주지 않으며, 핵심 분석·조회·결정 흐름은 이 상태와 무관하게
+  완결됩니다. 향후 adapter가 추가되어도 Java가 계산한 사실만 설명하도록
+  설계돼 있습니다.
+
+LLM provider adapter, 인증/인가, 외부 ERP/WMS/TMS 연동, 운영 스케줄러의
+정지된 `RUNNING` 복구는 이번 범위에 포함하지 않습니다.
+
+## 아키텍처
+
+![StockPilot MVP-2 아키텍처](docs/diagrams/stockpilot-architecture.svg)
+
+[draw.io 편집 원본](docs/diagrams/stockpilot-architecture.drawio) ·
+[SVG 원본](docs/diagrams/stockpilot-architecture.svg)
+
+Backend와 Frontend는 로컬에서 실행하고 Oracle Database Free만 Docker로
+격리합니다. Java 21, Spring Boot, Spring Batch, Oracle, React 19,
+TypeScript, Vite를 사용합니다. Redis, Kafka, 별도 인증 서버는 범위에
+없습니다.
+
+![StockPilot 데이터 모델 ERD](docs/diagrams/stockpilot-erd.svg)
+
+[draw.io 편집 원본](docs/diagrams/stockpilot-erd.drawio) ·
+[SVG 원본](docs/diagrams/stockpilot-erd.svg)
+
+상세 자연키·FK·Check와 Migration별 책임은
+[`knowledge/data-model.md`](knowledge/data-model.md)에 있습니다.
+
+## 엔지니어링 결정
+
+- **결정론적 계산은 Java가 소유**: 수요 신호·품질·예외·후보·시나리오·승인
+  검증은 Spring/JPA와 독립된 순수 Java 규칙으로 고정되어 있고, AI는 이미
+  계산된 사실만 설명합니다. 백분위·반올림·포장 배수 적용 순서는 단위
+  테스트로 고정됩니다.
+- **Batch의 원자성과 조회 범위 고정**: 분석 실행은 버전·기간으로 제한한
+  고정 개수(8개) bulk JDBC 조회로 일별 사실과 정책 입력을 읽고, 계산은
+  Java 메모리에서 수행한 뒤 결과를 하나의 트랜잭션으로 저장합니다. 실행
+  키는 `(analysisDate, inputSnapshotVersion, ruleVersion)`이며 새 입력
+  버전은 과거 결과를 덮어쓰지 않습니다.
+- **승인의 멱등성과 동시성**: 결정 저장은 `Idempotency-Key`를 필수로 받고
+  신규 저장은 `201 Created`, 같은 키·같은 요청 재전송은 기존 결과를
+  `200 OK`로 반환합니다. 같은 키를 다른 요청에 재사용하면
+  `IDEMPOTENCY_KEY_REUSED`, 최신 재계산과 맞지 않으면
+  `STALE_RECOMMENDATION`을 `409 Conflict`로 반환합니다. 승인 트랜잭션은
+  recommendation-then-donor 순서로 잠그고 최신 입력과 공급 가능량을
+  재검증합니다.
+- **AI는 설명 전용 경계**: AI가 비활성·미설정·장애 상태여도 핵심 분석·조회·
+  결정 흐름은 막히지 않습니다. AI는 수량·우선순위·실행 가능 여부·결정
+  상태를 생성하지 않으며, 실제 정책 문서가 없으면 합성 `ASSUMPTION` 기준을
+  명시합니다.
 
 ## 로컬 실행
 
 ### 요구 환경
 
 - Java 21
-- Node.js 22 LTS 이상과 pnpm
+- Node.js 22 LTS 이상과 pnpm(`corepack enable`)
 - Docker Desktop
 
-### 1. 로컬 설정 생성
+### 설정
 
 ```powershell
 .\scripts\local.ps1 setup
-```
-
-루트에 Git에서 제외되는 `.env`가 생성됩니다. Oracle 관리자와 앱 사용자 비밀번호는 무작위로 만들어지며, 추후 LLM API Key도 이 파일에만 추가합니다.
-
-### 2. 합성 데이터 확인
-
-```powershell
 .\scripts\local.ps1 seed-check
-```
-
-### 3. Oracle 시작
-
-Docker Desktop을 실행한 뒤 다음 명령을 사용합니다.
-
-```powershell
 .\scripts\local.ps1 db-up
 .\scripts\local.ps1 db-status
 ```
 
-최초 실행은 Oracle 이미지를 내려받기 때문에 시간이 걸릴 수 있습니다. 데이터는 Docker Volume에 유지됩니다.
+`setup`은 Git에서 제외되는 루트 `.env`를 만듭니다. DB 비밀번호와 선택적
+LLM API Key는 이 파일에만 둡니다. `db-down`은 컨테이너만 내리고 Oracle
+Volume은 보존합니다.
 
-### 4. Backend 시작
-
-새 터미널에서 실행합니다.
+### Backend와 Frontend 실행
 
 ```powershell
 .\scripts\local.ps1 backend
 ```
 
-Backend가 Oracle에 연결되면 Flyway가 Schema, Seed와 Spring Batch 메타데이터를 순서대로 적용합니다.
-
-### 5. Frontend 시작
-
-다른 터미널에서 실행합니다.
+다른 터미널:
 
 ```powershell
-corepack enable
 pnpm --dir frontend install --frozen-lockfile
 .\scripts\local.ps1 frontend
 ```
 
-### 종료
+### 검증
 
 ```powershell
-.\scripts\local.ps1 db-down
+.\scripts\local.ps1 seed-check
+.\scripts\local.ps1 test-db-free
+.\scripts\local.ps1 db-up
+.\scripts\local.ps1 db-status
+.\scripts\local.ps1 test
+git diff --check
 ```
 
-`db-down`은 컨테이너만 내리고 Oracle 데이터 Volume은 보존합니다.
+`test-db-free`는 `DB_URL`을 제거해 Oracle 전용 통합 테스트만 정상 skip하는
+순수 Java 검증이며, 실제 JUnit 결과를 집계해 total/pass/skip/failure/error를
+출력합니다. `test`는 Seed 검증, Oracle 상태 확인, `DB_URL`/`DB_USERNAME`/
+`DB_PASSWORD` 값 존재 확인(값은 출력하지 않음), Backend Oracle 전체 테스트,
+Frontend 설치·테스트·빌드를 순서대로 모두 실행합니다. Backend 단계는 Gradle
+종료 코드뿐 아니라 실제 JUnit XML을 집계해 테스트 0건이거나 skip·실패·오류가
+하나라도 있으면 실패로 처리합니다 — Oracle 전용 테스트가 조용히 전부 skip된
+채로 "통과"를 보고할 수 없습니다. 어느 단계라도 실패·누락되면 0이 아닌 종료
+코드를 반환합니다. Oracle 컨테이너/Volume을 시작·중지·삭제하지 않으므로
+`db-up`/`db-down`은 별도로 실행합니다.
 
-## 현재 구현 상태
+## 검증된 현재 상태 (2026-08-30)
 
-| 구분 | 상태 |
-|---|---|
-| 프로젝트 정의·업무 규칙 | 완료 |
-| ERD·Oracle Schema·Seed Migration | Oracle 적용 검증 완료 |
-| Docker Compose·로컬 설정 | Oracle Healthy 상태 검증 완료 |
-| Backend·Frontend 실행 뼈대 | Backend 기동·Frontend 빌드 검증 완료 |
-| Batch 분석·REST API | 미구현 |
-| 예외 목록·시뮬레이션 화면 | 미구현 |
-| 승인·거절·AI 설명 | 미구현 |
+- DB-free Backend(`test-db-free`): 520 테스트 중 378 통과, 142개는
+  `DB_URL` 부재로 조건부 skip, 실패·오류 0건. 명령 자체가 실제 JUnit XML
+  합계를 집계해 출력합니다.
+- Oracle Backend(`test`, `clean test --rerun-tasks`): 520/520 통과,
+  skip·실패·오류 0건. `V1`~`V15` Flyway migration 검증 통과. `test`는
+  Gradle 종료 코드뿐 아니라 `DB_URL`/`DB_USERNAME`/`DB_PASSWORD` 값 존재
+  여부와 실제 JUnit XML의 skip=0을 함께 강제하므로, Oracle 테스트가
+  전부 skip된 채로 통과를 보고할 수 없습니다.
+- Batch Golden Scenario: 6개 합성 시나리오 입력에서 orchestrator가 자체
+  SQL 없이 정확히 8개 bulk 조회만 실행하고, 12개 지표(6 SKU × 수령/공급
+  2개 관점), 4개 후보(2개 적격/2개 탈락), 1개 품질 플래그(`OOS_CENSORED`),
+  3종 탈락 사유, 8개 자동 시나리오를 산출합니다.
+- Frontend: `pnpm test` 10개 파일 97개 테스트 통과, `pnpm build`
+  (`tsc -b && vite build`) 통과.
+- `git diff --check`: 저장소 전체 exit 0(줄바꿈 변환 경고만).
+- 브라우저 스모크: Backend·Frontend를 함께 실행해 분석 재사용, 큐 필터,
+  상세(근거·후보·시나리오), 부작용 없는 MANUAL 수량 시험, 결정 이력 조회를
+  데스크톱과 375px 폭에서 확인. 페이지 레벨 가로 스크롤과 콘솔 오류 없음.
+  이 스모크에서는 결정을 저장하지 않았습니다.
 
-완성된 기능과 계획된 기능을 구분해서 기록합니다. 실제 검증 상태는 [`knowledge/state/implemented-state.md`](knowledge/state/implemented-state.md)가 기준입니다.
+실제 구현 사실의 상세 근거는
+[`knowledge/state/implemented-state.md`](knowledge/state/implemented-state.md)에
+기록합니다.
 
-## 데이터 고지
+## 한계
 
-이 저장소의 상품, 매장, 재고와 판매 데이터는 모두 데모를 위해 만든 `SYNTHETIC` 데이터입니다. 계산 임계값과 목표 재고일수는 `ASSUMPTION`이며 특정 기업의 실제 데이터나 내부 정책을 구현했다고 주장하지 않습니다.
+- 실제 LLM provider adapter는 구현되지 않았습니다. AI 설명은 비활성 상태로
+  검증됐습니다.
+- 운영 스케줄러, 정지된 `RUNNING` 복구, 여러 JobInstance 동시 시작 경합의
+  운영 정규화는 구현되지 않았습니다.
+- 인증/인가와 외부 ERP/WMS/TMS 연동은 구현되지 않았습니다. 승인은
+  `SP_TRANSFER_DRAFT` 초안 생성까지만 처리합니다.
+- 모든 데이터는 `SYNTHETIC`이며 모든 정책·임계값은 버전 관리되는
+  `ASSUMPTION`입니다. 실제 F&F 정책이나 검증된 산업 표준이 아닙니다.
+- Batch는 합성 규모에서 검증된 단일 Tasklet입니다. 대규모 처리로
+  주장하지 않습니다.
+
+## 공개 근거
+
+- [F&F 공개 공시](https://kind.krx.co.kr/external/2025/11/14/002884/20251114006635/11013.htm)는
+  국내 대리점 운영과 상품 로테이션이라는 업무 가설의 공개 근거입니다.
+- [Oracle Retail 재배분 workflow](https://docs.oracle.com/en/industries/retail/retail-inventory-planning-optimization-cloud/26.1.101.0/ipoio/workflow1.htm)는
+  Batch 결과를 사람이 검토·수정·승인하는 흐름의 참고입니다.
+- [Oracle Retail 매장 이동](https://docs.oracle.com/en/industries/retail/store-inventory-op-cloud/latest/rsoug/transfers.htm)은
+  요청·승인·출고·입고 경계의 참고입니다.
+
+이 자료들은 업계 타당성의 근거일 뿐 F&F 내부 시스템이나 절차가 동일하다는
+증거가 아닙니다.

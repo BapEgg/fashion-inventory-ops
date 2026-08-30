@@ -1,0 +1,3 @@
+donor_store_id,receiver_store_id,active_flag,owner_override_flag,lead_time_days,minimum_quantity,package_multiple,maximum_quantity,input_snapshot_version,assumption_type
+STORE-MVP2-DONOR-A,STORE-MVP2-RECEIVER-A,Y,N,1,1,1,50,MVP-2-GS-V1,ASSUMPTION
+STORE-MVP2-DONOR-B,STORE-MVP2-RECEIVER-A,Y,N,10,1,1,50,MVP-2-GS-V1,ASSUMPTION

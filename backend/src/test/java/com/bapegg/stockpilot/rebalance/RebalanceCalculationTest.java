@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -50,6 +51,40 @@ class RebalanceCalculationTest {
         assertTrue(result.isPresent());
         // donorTransferable = max(10 - 4, 0) = 6
         assertEquals(6, result.get().donorTransferableQuantity());
+    }
+
+    @Test
+    void largeSoldQuantityDoesNotOverflowDuringCeilingCalculation() {
+        // donorSold * DONOR_RETAINED_COVERAGE_DAYS = 200_000_000 * 14 = 2_800_000_000,
+        // which overflows a 32-bit int (wraps to a negative number) if the multiplication
+        // is not widened to long before ceilDiv. donorRetained = ceilDiv(2_800_000_000, 7)
+        // + 2 = 400_000_002 exactly; donorTransferable = 500_000_000 - 400_000_002 =
+        // 99_999_998. A wrapped/negative intermediate would corrupt this result.
+        Optional<RebalanceCalculation> result = RebalanceCalculation.calculate(
+                1, 0, 200_000_000, 500_000_000);
+
+        assertTrue(result.isPresent());
+        assertEquals(99_999_998, result.get().donorTransferableQuantity());
+        assertEquals(3, result.get().receiverShortageQuantity());
+        assertEquals(3, result.get().recommendedQuantity());
+    }
+
+    @Test
+    void receiverTargetOverflowAfterAddingSafetyStockIsRejectedNotWrapped() {
+        // ceilDiv(MAX_VALUE * 7 / 7) = MAX_VALUE exactly (fits in int), but adding
+        // SAFETY_STOCK_UNITS (2) pushes the true target to MAX_VALUE + 2, which does
+        // not fit in an int. A previous implementation added SAFETY_STOCK_UNITS in
+        // plain int arithmetic after ceilDiv already returned int, wrapping to a
+        // negative target instead of failing loudly.
+        assertThrows(ArithmeticException.class,
+                () -> RebalanceCalculation.calculate(Integer.MAX_VALUE, 0, 1, 10));
+    }
+
+    @Test
+    void donorRetainedOverflowAfterAddingSafetyStockIsRejectedNotWrapped() {
+        // donorRetained's true value (MAX_VALUE * 2 + 2) is far outside int range.
+        assertThrows(ArithmeticException.class,
+                () -> RebalanceCalculation.calculate(1, 10, Integer.MAX_VALUE, 0));
     }
 
     @Test

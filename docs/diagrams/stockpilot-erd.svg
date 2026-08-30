@@ -1,184 +1,78 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="900" viewBox="0 0 1500 900" role="img" aria-labelledby="title description">
-  <title id="title">StockPilot 도메인 ERD</title>
-  <desc id="description">기준 및 원본 데이터, 분석 결과, 의사결정 영역의 여덟 개 테이블 관계도</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1400" viewBox="0 0 1800 1400" role="img" aria-labelledby="title desc">
+  <title id="title">StockPilot MVP-2 논리 ERD</title>
+  <desc id="desc">기존 상품 매장 판매 재고 분석 지표 추천 결정 테이블을 보존·확장하고 이벤트 입고 진행중 이동 경로 정책 품질 플래그 후보 사유 시나리오 이동지시 초안 승인 근거 오류 카탈로그를 추가한, 구현·검증된 데이터 모델.</desc>
   <defs>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.12"/>
-    </filter>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
-    </marker>
+    <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0 0 L10 4 L0 8 Z" fill="#64748b"/></marker>
     <style>
-      .title { font: 700 28px Arial, 'Noto Sans KR', sans-serif; fill: #0f172a; }
-      .subtitle { font: 400 14px Arial, 'Noto Sans KR', sans-serif; fill: #64748b; }
-      .zone-title { font: 700 17px Arial, 'Noto Sans KR', sans-serif; fill: #334155; }
-      .entity-title { font: 700 16px Arial, 'Noto Sans KR', sans-serif; fill: #ffffff; }
-      .entity-name { font: 600 11px Consolas, monospace; fill: #e2e8f0; }
-      .field { font: 13px Consolas, 'Noto Sans KR', monospace; fill: #334155; }
-      .field-key { font: 700 13px Consolas, 'Noto Sans KR', monospace; fill: #0f172a; }
-      .relation { fill: none; stroke: #64748b; stroke-width: 2; marker-end: url(#arrow); }
-      .relation-label { font: 700 11px Arial, 'Noto Sans KR', sans-serif; fill: #475569; paint-order: stroke; stroke: #ffffff; stroke-width: 4px; }
-      .legend { font: 12px Arial, 'Noto Sans KR', sans-serif; fill: #475569; }
+      .title{font:700 28px Arial,'Noto Sans KR',sans-serif;fill:#0f172a}.subtitle{font:14px Arial,'Noto Sans KR',sans-serif;fill:#475569}.group{fill:#f8fafc;stroke:#cbd5e1;stroke-width:1.5}.groupTitle{font:700 16px Arial,'Noto Sans KR',sans-serif;fill:#334155}.table{fill:#fff;stroke-width:2;rx:10}.existing{stroke:#ea580c}.new{stroke:#2563eb}.headOld{fill:#fff7ed}.headNew{fill:#eff6ff}.name{font:700 14px Consolas,monospace;fill:#0f172a}.tag{font:11px Arial,'Noto Sans KR',sans-serif;fill:#64748b}.field{font:12px Consolas,'Noto Sans KR',sans-serif;fill:#334155}.line{stroke:#e2e8f0}.rel{fill:none;stroke:#64748b;stroke-width:1.7;marker-end:url(#arrow)}.dashed{stroke-dasharray:6 5}.legend{font:13px Arial,'Noto Sans KR',sans-serif;fill:#334155}
     </style>
   </defs>
+  <rect width="1800" height="1400" fill="#fff"/>
+  <text x="45" y="48" class="title">StockPilot MVP-2 논리 ERD</text>
+  <text x="45" y="76" class="subtitle">주황은 V1부터 존재하는 테이블의 호환 확장, 파랑은 MVP-2에서 추가돼 구현·검증된 신규 논리 테이블입니다.</text>
 
-  <rect width="1500" height="900" fill="#ffffff"/>
-  <text x="32" y="38" class="title">StockPilot 도메인 ERD</text>
-  <text x="1468" y="37" class="subtitle" text-anchor="end">원본 근거 → 분석 결과 → 재배분 의사결정</text>
+  <rect x="35" y="105" width="1730" height="450" rx="16" class="group"/><text x="60" y="136" class="groupTitle">입력 계약 · SYNTHETIC / versioned</text>
+  <rect x="35" y="580" width="1730" height="200" rx="16" class="group"/><text x="60" y="611" class="groupTitle">결정론적 분석 결과</text>
+  <rect x="35" y="805" width="1730" height="290" rx="16" class="group"/><text x="60" y="836" class="groupTitle">후보 · 시나리오 · 사람의 결정 · 외부 경계</text>
+  <rect x="35" y="1115" width="1730" height="220" rx="16" class="group"/><text x="60" y="1146" class="groupTitle">승인 근거 · 오류 카탈로그</text>
 
-  <rect x="25" y="60" width="710" height="790" rx="18" fill="#eff6ff" stroke="#bfdbfe"/>
-  <rect x="755" y="60" width="350" height="790" rx="18" fill="#f5f3ff" stroke="#ddd6fe"/>
-  <rect x="1125" y="60" width="350" height="790" rx="18" fill="#ecfdf5" stroke="#a7f3d0"/>
-  <text x="48" y="91" class="zone-title">1. 기준·원본 데이터</text>
-  <text x="778" y="91" class="zone-title">2. Batch 분석 결과</text>
-  <text x="1148" y="91" class="zone-title">3. 담당자 의사결정</text>
+  <!-- relationships behind tables -->
+  <path d="M235 240 H285" class="rel"/><path d="M235 240 C260 240 260 385 285 385" class="rel"/>
+  <path d="M235 405 H285" class="rel"/><path d="M235 405 C260 405 260 240 285 240" class="rel"/>
+  <path d="M235 240 C470 240 470 250 535 250" class="rel"/>
+  <path d="M235 405 C470 405 470 250 535 250" class="rel"/>
+  <path d="M235 240 C700 240 700 245 785 245" class="rel"/>
+  <path d="M235 405 C700 405 700 245 785 245" class="rel"/>
+  <path d="M235 240 C950 240 950 245 1035 245" class="rel"/>
+  <path d="M235 405 C950 405 950 245 1035 245" class="rel"/>
+  <path d="M235 240 C1190 240 1190 245 1285 245" class="rel"/>
+  <path d="M235 405 C1190 405 1190 245 1285 245" class="rel"/>
+  <path d="M1485 245 C1540 245 1540 635 1540 635" class="rel dashed"/>
+  <path d="M1335 465 C1335 560 1290 560 1290 635" class="rel dashed"/>
+  <path d="M885 465 C885 560 1000 560 1000 635" class="rel dashed"/>
+  <path d="M635 465 C635 560 710 560 710 635" class="rel dashed"/>
+  <path d="M530 680 H585" class="rel"/><path d="M835 680 H890" class="rel"/>
+  <path d="M710 730 C710 805 300 805 300 865" class="rel"/>
+  <path d="M1000 730 C1000 805 300 805 300 865" class="rel"/>
+  <path d="M510 930 H565" class="rel"/><path d="M510 930 C535 930 535 1030 565 1030" class="rel"/>
+  <path d="M815 930 H870" class="rel"/><path d="M1120 930 H1175" class="rel"/><path d="M1425 930 H1480" class="rel"/>
+  <path d="M995 995 C995 1060 390 1060 390 1150" class="rel dashed"/>
+  <path d="M820 1215 H880" class="rel"/>
 
-  <!-- Relationships -->
-  <path class="relation" d="M 325 170 H 375"/>
-  <text x="350" y="160" class="relation-label" text-anchor="middle">1 : N</text>
-  <path class="relation" d="M 325 225 H 348 V 515 H 375"/>
-  <text x="348" y="368" class="relation-label" text-anchor="middle">1 : N</text>
-  <path class="relation" d="M 325 493 H 346 V 300 H 375"/>
-  <text x="346" y="408" class="relation-label" text-anchor="middle">1 : N</text>
-  <path class="relation" d="M 325 540 H 375"/>
-  <text x="350" y="530" class="relation-label" text-anchor="middle">1 : N</text>
-  <path class="relation" d="M 695 245 H 730 V 555 H 775"/>
-  <text x="730" y="420" class="relation-label" text-anchor="middle">1 : N</text>
-  <path class="relation" d="M 925 320 V 405"/>
-  <text x="938" y="367" class="relation-label">1 : N</text>
-  <path class="relation" d="M 1075 525 H 1110 V 250 H 1145"/>
-  <path class="relation" d="M 1075 590 H 1095 V 320 H 1145" stroke-dasharray="6 5"/>
-  <path class="relation" d="M 1295 405 V 495"/>
-  <text x="1308" y="455" class="relation-label">1 : 0..1</text>
+  <!-- existing input -->
+  <g><rect x="65" y="170" width="170" height="140" class="table existing"/><rect x="65" y="170" width="170" height="40" rx="10" class="headOld"/><text x="78" y="195" class="name">SP_PRODUCT</text><text x="78" y="225" class="field">PK sku_id</text><text x="78" y="248" class="field">launch_date</text><text x="78" y="271" class="field">season / status</text><text x="78" y="296" class="tag">MVP-1 table · 확장</text></g>
+  <g><rect x="65" y="335" width="170" height="140" class="table existing"/><rect x="65" y="335" width="170" height="40" rx="10" class="headOld"/><text x="78" y="360" class="name">SP_STORE</text><text x="78" y="390" class="field">PK store_id</text><text x="78" y="413" class="field">owner_code</text><text x="78" y="436" class="field">type / zone</text><text x="78" y="461" class="tag">MVP-1 table · 확장</text></g>
+  <g><rect x="285" y="170" width="205" height="140" class="table existing"/><rect x="285" y="170" width="205" height="40" rx="10" class="headOld"/><text x="298" y="195" class="name">SP_DAILY_SALE</text><text x="298" y="225" class="field">FK store_id / sku_id</text><text x="298" y="248" class="field">qty / txn metrics</text><text x="298" y="271" class="field">input_snapshot_version</text><text x="298" y="296" class="tag">28일 일판매 · 확장</text></g>
+  <g><rect x="285" y="335" width="205" height="140" class="table existing"/><rect x="285" y="335" width="205" height="40" rx="10" class="headOld"/><text x="298" y="360" class="name">SP_INVENTORY_SNAPSHOT</text><text x="298" y="390" class="field">FK store_id / sku_id</text><text x="298" y="413" class="field">on_hand / reserved / OOS</text><text x="298" y="436" class="field">snapshot_at / input_version</text><text x="298" y="461" class="tag">28일 재고 · 확장</text></g>
 
-  <!-- Product -->
-  <g filter="url(#shadow)">
-    <rect x="45" y="115" width="280" height="205" rx="10" fill="#ffffff" stroke="#93c5fd"/>
-    <path d="M 45 125 Q 45 115 55 115 H 315 Q 325 115 325 125 V 164 H 45 Z" fill="#2563eb"/>
-  </g>
-  <text x="61" y="137" class="entity-title">상품</text>
-  <text x="61" y="154" class="entity-name">SP_PRODUCT</text>
-  <text x="61" y="187" class="field-key">PK  sku_id</text>
-  <text x="61" y="211" class="field">    product_name</text>
-  <text x="61" y="235" class="field">    category</text>
-  <text x="61" y="259" class="field">    color</text>
-  <text x="61" y="283" class="field">    size_name</text>
-  <text x="61" y="307" class="field">    created_at</text>
+  <!-- new input -->
+  <g><rect x="535" y="175" width="205" height="150" class="table new"/><rect x="535" y="175" width="205" height="40" rx="10" class="headNew"/><text x="548" y="200" class="name">SP_DEMAND_EVENT</text><text x="548" y="230" class="field">FK store_id / sku_id</text><text x="548" y="253" class="field">period / event_type</text><text x="548" y="276" class="field">uplift low/base/high</text><text x="548" y="303" class="tag">신규 · versioned</text></g>
+  <g><rect x="535" y="350" width="205" height="125" class="table new"/><rect x="535" y="350" width="205" height="40" rx="10" class="headNew"/><text x="548" y="375" class="name">SP_INBOUND_SCHEDULE</text><text x="548" y="405" class="field">store / sku / qty</text><text x="548" y="428" class="field">ETA / status / version</text><text x="548" y="458" class="tag">신규 · 입고 예정</text></g>
+  <g><rect x="785" y="175" width="205" height="150" class="table new"/><rect x="785" y="175" width="205" height="40" rx="10" class="headNew"/><text x="798" y="200" class="name">SP_OPEN_TRANSFER</text><text x="798" y="230" class="field">donor / receiver / sku</text><text x="798" y="253" class="field">qty / ETA / status</text><text x="798" y="276" class="field">input_snapshot_version</text><text x="798" y="303" class="tag">신규 · 진행 중 이동</text></g>
+  <g><rect x="785" y="350" width="205" height="125" class="table new"/><rect x="785" y="350" width="205" height="40" rx="10" class="headNew"/><text x="798" y="375" class="name">SP_STORE_SKU_POLICY</text><text x="798" y="405" class="field">display / safety / capacity</text><text x="798" y="428" class="field">target / retained days</text><text x="798" y="458" class="tag">신규 · ASSUMPTION</text></g>
+  <g><rect x="1035" y="175" width="205" height="150" class="table new"/><rect x="1035" y="175" width="205" height="40" rx="10" class="headNew"/><text x="1048" y="200" class="name">SP_STORE_TRANSFER_ROUTE</text><text x="1048" y="230" class="field">donor / receiver</text><text x="1048" y="253" class="field">lead / min / multiple / max</text><text x="1048" y="276" class="field">active / owner override</text><text x="1048" y="303" class="tag">신규 · 방향성 경로</text></g>
+  <g><rect x="1285" y="175" width="200" height="140" class="table new"/><rect x="1285" y="175" width="200" height="40" rx="10" class="headNew"/><text x="1298" y="200" class="name">INPUT VERSION</text><text x="1298" y="230" class="field">input_snapshot_version</text><text x="1298" y="253" class="field">source_type</text><text x="1298" y="276" class="field">immutable after run</text><text x="1298" y="301" class="tag">모든 운영 입력의 계약</text></g>
+  <g><rect x="1285" y="350" width="200" height="125" class="table new"/><rect x="1285" y="350" width="200" height="40" rx="10" class="headNew"/><text x="1298" y="375" class="name">INPUT CONSTRAINTS</text><text x="1298" y="405" class="field">natural keys / FK / checks</text><text x="1298" y="428" class="field">SYNTHETIC provenance</text><text x="1298" y="458" class="tag">논리 계약 표기</text></g>
 
-  <!-- Store -->
-  <g filter="url(#shadow)">
-    <rect x="45" y="420" width="280" height="170" rx="10" fill="#ffffff" stroke="#93c5fd"/>
-    <path d="M 45 430 Q 45 420 55 420 H 315 Q 325 420 325 430 V 469 H 45 Z" fill="#2563eb"/>
-  </g>
-  <text x="61" y="442" class="entity-title">매장</text>
-  <text x="61" y="459" class="entity-name">SP_STORE</text>
-  <text x="61" y="492" class="field-key">PK  store_id</text>
-  <text x="61" y="516" class="field">    store_name</text>
-  <text x="61" y="540" class="field">    region</text>
-  <text x="61" y="564" class="field">    created_at</text>
+  <!-- analysis -->
+  <g><rect x="280" y="635" width="250" height="95" class="table existing"/><rect x="280" y="635" width="250" height="38" rx="10" class="headOld"/><text x="293" y="659" class="name">SP_ANALYSIS_RUN</text><text x="293" y="692" class="field">analysis_date + input_version</text><text x="293" y="715" class="field">+ rule_version = unique</text></g>
+  <g><rect x="585" y="625" width="250" height="105" class="table existing"/><rect x="585" y="625" width="250" height="38" rx="10" class="headOld"/><text x="598" y="649" class="name">SP_INVENTORY_METRIC</text><text x="598" y="682" class="field">signal / confidence / rates</text><text x="598" y="705" class="field">exception / severity / evidence</text></g>
+  <g><rect x="890" y="635" width="220" height="95" class="table new"/><rect x="890" y="635" width="220" height="38" rx="10" class="headNew"/><text x="903" y="659" class="name">SP_METRIC_QUALITY_FLAG</text><text x="903" y="692" class="field">FK metric_id</text><text x="903" y="715" class="field">flag_code (multi-value)</text></g>
+  <g><rect x="1180" y="635" width="220" height="95" class="table new"/><rect x="1180" y="635" width="220" height="38" rx="10" class="headNew"/><text x="1193" y="659" class="name">RULE TRACE</text><text x="1193" y="692" class="field">deterministic Java result</text><text x="1193" y="715" class="field">AI cannot mutate</text></g>
 
-  <!-- Inventory -->
-  <g filter="url(#shadow)">
-    <rect x="375" y="105" width="320" height="285" rx="10" fill="#ffffff" stroke="#93c5fd"/>
-    <path d="M 375 115 Q 375 105 385 105 H 685 Q 695 105 695 115 V 154 H 375 Z" fill="#0284c7"/>
-  </g>
-  <text x="391" y="127" class="entity-title">재고 스냅샷</text>
-  <text x="391" y="144" class="entity-name">SP_INVENTORY_SNAPSHOT</text>
-  <text x="391" y="177" class="field-key">PK  inventory_snapshot_id</text>
-  <text x="391" y="201" class="field">    snapshot_date</text>
-  <text x="391" y="225" class="field-key">FK  store_id</text>
-  <text x="391" y="249" class="field-key">FK  sku_id</text>
-  <text x="391" y="273" class="field">    on_hand_quantity</text>
-  <text x="391" y="297" class="field">    reserved_quantity</text>
-  <text x="391" y="321" class="field">    source_type</text>
-  <text x="391" y="345" class="field">    created_at</text>
-  <text x="391" y="374" class="subtitle">UQ: snapshot_date + store_id + sku_id</text>
+  <!-- decisions -->
+  <g><rect x="250" y="865" width="260" height="130" class="table existing"/><rect x="250" y="865" width="260" height="40" rx="10" class="headOld"/><text x="263" y="890" class="name">SP_REBALANCE_RECOMMENDATION</text><text x="263" y="920" class="field">receiver / donor / route</text><text x="263" y="943" class="field">eligible / rejected / version</text><text x="263" y="966" class="field">BASE representative qty</text><text x="263" y="989" class="tag">MVP-1 테이블 · 호환 확장</text></g>
+  <g><rect x="565" y="865" width="250" height="105" class="table new"/><rect x="565" y="865" width="250" height="38" rx="10" class="headNew"/><text x="578" y="889" class="name">SP_CANDIDATE_REASON</text><text x="578" y="922" class="field">FK recommendation_id</text><text x="578" y="945" class="field">reason_code / order</text></g>
+  <g><rect x="565" y="995" width="250" height="105" class="table new"/><rect x="565" y="995" width="250" height="38" rx="10" class="headNew"/><text x="578" y="1019" class="name">SP_REBALANCE_SCENARIO</text><text x="578" y="1052" class="field">NO_ACTION / CONSERVATIVE / BASE</text><text x="578" y="1075" class="field">AGGRESSIVE · both-store result</text></g>
+  <g><rect x="870" y="865" width="250" height="130" class="table existing"/><rect x="870" y="865" width="250" height="40" rx="10" class="headOld"/><text x="883" y="890" class="name">SP_REBALANCE_DECISION</text><text x="883" y="920" class="field">sequence / status / reason</text><text x="883" y="943" class="field">selected_qty / candidate_version</text><text x="883" y="966" class="field">actor / decided_at</text><text x="883" y="989" class="tag">append-only 이력 · 확장</text></g>
+  <g><rect x="1175" y="865" width="250" height="130" class="table new"/><rect x="1175" y="865" width="250" height="40" rx="10" class="headNew"/><text x="1188" y="890" class="name">SP_TRANSFER_DRAFT</text><text x="1188" y="920" class="field">FK approved decision</text><text x="1188" y="943" class="field">donor / receiver / sku / qty</text><text x="1188" y="966" class="field">draft / external status</text><text x="1188" y="989" class="tag">실제 재고 변경 없음</text></g>
+  <g><rect x="1480" y="865" width="220" height="130" class="table new"/><rect x="1480" y="865" width="220" height="40" rx="10" class="headNew"/><text x="1493" y="890" class="name">ERP / WMS BOUNDARY</text><text x="1493" y="920" class="field">payload_version</text><text x="1493" y="943" class="field">external_reference</text><text x="1493" y="966" class="field">no call in MVP-2</text><text x="1493" y="989" class="tag">외부 실행 책임</text></g>
 
-  <!-- Sale -->
-  <g filter="url(#shadow)">
-    <rect x="375" y="430" width="320" height="260" rx="10" fill="#ffffff" stroke="#93c5fd"/>
-    <path d="M 375 440 Q 375 430 385 430 H 685 Q 695 430 695 440 V 479 H 375 Z" fill="#0284c7"/>
-  </g>
-  <text x="391" y="452" class="entity-title">일판매</text>
-  <text x="391" y="469" class="entity-name">SP_DAILY_SALE</text>
-  <text x="391" y="502" class="field-key">PK  daily_sale_id</text>
-  <text x="391" y="526" class="field">    sales_date</text>
-  <text x="391" y="550" class="field-key">FK  store_id</text>
-  <text x="391" y="574" class="field-key">FK  sku_id</text>
-  <text x="391" y="598" class="field">    sold_quantity</text>
-  <text x="391" y="622" class="field">    source_type</text>
-  <text x="391" y="646" class="field">    created_at</text>
-  <text x="391" y="675" class="subtitle">UQ: sales_date + store_id + sku_id</text>
+  <!-- approval basis / error catalog -->
+  <g><rect x="250" y="1150" width="280" height="165" class="table new"/><rect x="250" y="1150" width="280" height="40" rx="10" class="headNew"/><text x="263" y="1175" class="name">SP_APPROVAL_BASIS</text><text x="263" y="1205" class="field">FK recommendation_id / decision_id</text><text x="263" y="1228" class="field">candidate_version / route limits</text><text x="263" y="1251" class="field">recommended_base_qty</text><text x="263" y="1274" class="field">basis_contract_version</text><text x="263" y="1298" class="tag">신규 · 승인 시점 근거 스냅샷</text></g>
+  <g><rect x="590" y="1150" width="230" height="130" class="table new"/><rect x="590" y="1150" width="230" height="40" rx="10" class="headNew"/><text x="603" y="1175" class="name">SP_ERROR_CATALOG</text><text x="603" y="1205" class="field">error_code / http_status</text><text x="603" y="1228" class="field">retryable_flag / title_ko</text><text x="603" y="1255" class="tag">신규 · 오류 코드 사전</text></g>
+  <g><rect x="880" y="1150" width="260" height="110" class="table new"/><rect x="880" y="1150" width="260" height="40" rx="10" class="headNew"/><text x="893" y="1175" class="name">SP_ERROR_CONSTRAINT_MAP</text><text x="893" y="1205" class="field">constraint_name → error_code</text><text x="893" y="1235" class="tag">신규 · DB 제약 매핑</text></g>
 
-  <!-- Analysis Run -->
-  <g filter="url(#shadow)">
-    <rect x="775" y="110" width="300" height="210" rx="10" fill="#ffffff" stroke="#c4b5fd"/>
-    <path d="M 775 120 Q 775 110 785 110 H 1065 Q 1075 110 1075 120 V 159 H 775 Z" fill="#7c3aed"/>
-  </g>
-  <text x="791" y="132" class="entity-title">분석 실행</text>
-  <text x="791" y="149" class="entity-name">SP_ANALYSIS_RUN</text>
-  <text x="791" y="182" class="field-key">PK  analysis_run_id</text>
-  <text x="791" y="206" class="field">    analysis_date</text>
-  <text x="791" y="230" class="field">    rule_version</text>
-  <text x="791" y="254" class="field">    run_status</text>
-  <text x="791" y="278" class="field">    started_at</text>
-  <text x="791" y="302" class="field">    completed_at</text>
-
-  <!-- Inventory Metric -->
-  <g filter="url(#shadow)">
-    <rect x="775" y="405" width="300" height="330" rx="10" fill="#ffffff" stroke="#c4b5fd"/>
-    <path d="M 775 415 Q 775 405 785 405 H 1065 Q 1075 405 1075 415 V 454 H 775 Z" fill="#7c3aed"/>
-  </g>
-  <text x="791" y="427" class="entity-title">재고 분석 지표</text>
-  <text x="791" y="444" class="entity-name">SP_INVENTORY_METRIC</text>
-  <text x="791" y="477" class="field-key">PK  inventory_metric_id</text>
-  <text x="791" y="501" class="field-key">FK  analysis_run_id</text>
-  <text x="791" y="525" class="field-key">FK  inventory_snapshot_id</text>
-  <text x="791" y="549" class="field">    available_quantity</text>
-  <text x="791" y="573" class="field">    average_daily_sales</text>
-  <text x="791" y="597" class="field">    coverage_days</text>
-  <text x="791" y="621" class="field">    classification</text>
-  <text x="791" y="645" class="field">    priority</text>
-  <text x="791" y="669" class="field">    created_at</text>
-  <text x="791" y="705" class="subtitle">규칙 버전별 계산 결과</text>
-
-  <!-- Recommendation -->
-  <g filter="url(#shadow)">
-    <rect x="1145" y="120" width="305" height="285" rx="10" fill="#ffffff" stroke="#6ee7b7"/>
-    <path d="M 1145 130 Q 1145 120 1155 120 H 1440 Q 1450 120 1450 130 V 169 H 1145 Z" fill="#059669"/>
-  </g>
-  <text x="1161" y="142" class="entity-title">재배분 추천</text>
-  <text x="1161" y="159" class="entity-name">SP_REBALANCE_RECOMMENDATION</text>
-  <text x="1161" y="192" class="field-key">PK  recommendation_id</text>
-  <text x="1161" y="216" class="field-key">FK  receiver_metric_id</text>
-  <text x="1161" y="240" class="field-key">FK  donor_metric_id</text>
-  <text x="1161" y="264" class="field">    receiver_shortage_quantity</text>
-  <text x="1161" y="288" class="field">    donor_transferable_quantity</text>
-  <text x="1161" y="312" class="field">    recommended_quantity</text>
-  <text x="1161" y="336" class="field">    created_at</text>
-  <text x="1161" y="378" class="subtitle">같은 SKU의 수요·공급 매장 연결</text>
-
-  <!-- Decision -->
-  <g filter="url(#shadow)">
-    <rect x="1145" y="495" width="305" height="275" rx="10" fill="#ffffff" stroke="#6ee7b7"/>
-    <path d="M 1145 505 Q 1145 495 1155 495 H 1440 Q 1450 495 1450 505 V 544 H 1145 Z" fill="#059669"/>
-  </g>
-  <text x="1161" y="517" class="entity-title">재배분 결정</text>
-  <text x="1161" y="534" class="entity-name">SP_REBALANCE_DECISION</text>
-  <text x="1161" y="567" class="field-key">PK  decision_id</text>
-  <text x="1161" y="591" class="field-key">FK  recommendation_id</text>
-  <text x="1161" y="615" class="field">    decision_status</text>
-  <text x="1161" y="639" class="field">    selected_quantity</text>
-  <text x="1161" y="663" class="field">    reason</text>
-  <text x="1161" y="687" class="field">    actor_label</text>
-  <text x="1161" y="711" class="field">    decided_at</text>
-  <text x="1161" y="748" class="subtitle">추천당 최대 1개 최종 결정</text>
-
-  <rect x="45" y="795" width="12" height="12" rx="2" fill="#2563eb"/>
-  <text x="65" y="806" class="legend">기준·원본</text>
-  <rect x="155" y="795" width="12" height="12" rx="2" fill="#7c3aed"/>
-  <text x="175" y="806" class="legend">분석 결과</text>
-  <rect x="265" y="795" width="12" height="12" rx="2" fill="#059669"/>
-  <text x="285" y="806" class="legend">추천·결정</text>
-  <text x="705" y="810" class="legend" text-anchor="end">Spring Batch 메타데이터 테이블은 업무 ERD에서 제외</text>
+  <rect x="1260" y="1355" width="18" height="13" class="table existing"/><text x="1288" y="1366" class="legend">기존 테이블 호환 확장</text>
+  <rect x="1465" y="1355" width="18" height="13" class="table new"/><text x="1493" y="1366" class="legend">MVP-2 신규 논리 테이블</text>
 </svg>

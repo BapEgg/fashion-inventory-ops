@@ -204,6 +204,13 @@ function buildExceptionListQuery(analysisRunId: number, filters: ExceptionListFi
   if (filters.hasExecutableCandidate !== null) {
     params.set('hasExecutableCandidate', String(filters.hasExecutableCandidate))
   }
+  for (const value of filters.workStatus) {
+    params.append('workStatus', value)
+  }
+  params.set('sortBy', filters.sortBy)
+  if (filters.sortDirection !== null) {
+    params.set('sortDirection', filters.sortDirection)
+  }
   params.set('page', String(filters.page))
   params.set('size', String(filters.size))
   return params.toString()

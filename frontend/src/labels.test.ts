@@ -3,8 +3,8 @@ import { analysisRunStatusLabel } from './labels'
 
 describe('analysisRunStatusLabel', () => {
   it('translates every known status to Korean', () => {
-    expect(analysisRunStatusLabel('RUNNING')).toBe('실행 중')
-    expect(analysisRunStatusLabel('COMPLETED')).toBe('완료됨')
+    expect(analysisRunStatusLabel('RUNNING')).toBe('갱신 중')
+    expect(analysisRunStatusLabel('COMPLETED')).toBe('갱신 완료')
     expect(analysisRunStatusLabel('FAILED')).toBe('실패')
   })
 

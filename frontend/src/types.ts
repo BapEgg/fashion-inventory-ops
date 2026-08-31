@@ -71,6 +71,13 @@ export type ManualQuantityViolation =
   | 'EXCEEDS_ROUTE_MAXIMUM'
   | 'EXCEEDS_RECEIVER_CAPACITY'
 
+/** The allocator-facing derived work status, per the redesign spec section 4.1 -- Java-computed, never re-derived here. */
+export type AllocatorWorkStatus = 'DECISION_REQUIRED' | 'ON_HOLD' | 'REVIEW_INPUT' | 'NO_TRANSFER_OPTION' | 'COMPLETED'
+
+export type ExceptionSortKey = 'WORK_PRIORITY' | 'SALES_EXPOSURE' | 'SHORTAGE_QUANTITY' | 'COVERAGE_DAYS' | 'STORE_PRODUCT'
+
+export type SortDirection = 'ASC' | 'DESC'
+
 // ---------------------------------------------------------------------------
 // Analysis
 // ---------------------------------------------------------------------------
@@ -114,8 +121,24 @@ export interface ExceptionListFilters {
   storeId: string | null
   skuId: string | null
   hasExecutableCandidate: boolean | null
+  workStatus: AllocatorWorkStatus[]
+  sortBy: ExceptionSortKey
+  sortDirection: SortDirection | null
   page: number
   size: number
+}
+
+/** The run-wide, filter-independent work summary, per redesign spec section 4.4. */
+export interface AllocatorWorkSummary {
+  totalReviewTargets: number
+  criticalCount: number
+  decisionRequiredCount: number
+  onHoldCount: number
+  reviewInputCount: number
+  noTransferOptionCount: number
+  completedCount: number
+  estimatedSalesExposureTotal: number
+  estimatedSalesExposureUnknownCount: number
 }
 
 export interface Mvp2InventoryExceptionListItem {
@@ -150,6 +173,8 @@ export interface Mvp2InventoryExceptionListItem {
   comparisonOnlyCandidateCount: number
   rejectedCandidateCount: number
   hasExecutableCandidate: boolean
+  workStatus: AllocatorWorkStatus
+  blockingReasons: TransferCandidateRejectionReason[]
 }
 
 export interface Mvp2InventoryExceptionPage {
@@ -167,6 +192,7 @@ export interface Mvp2InventoryExceptionPage {
   hasPrevious: boolean
   hasNext: boolean
   items: Mvp2InventoryExceptionListItem[]
+  summary: AllocatorWorkSummary
 }
 
 // ---------------------------------------------------------------------------

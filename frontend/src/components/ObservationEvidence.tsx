@@ -2,7 +2,7 @@ import type { ObservationWindow } from '../types'
 import { formatDate, formatMoney, formatQuantity } from '../formatters'
 
 /**
- * The 28-day sales/inventory evidence, per the React wiring spec section 5.2. The small SVG
+ * "판매·재고 근거" tab의 28일 판매/재고 evidence, per redesign spec section 8.9. The small SVG
  * trend is presentation only -- its coordinate scaling never changes the underlying values, which
  * are always also available in the accessible table below it.
  */
@@ -37,8 +37,8 @@ export function ObservationEvidence({ window }: { window: ObservationWindow }) {
   }
 
   return (
-    <section aria-label="28일 판매·재고 근거">
-      <h3>28일 판매·재고 근거</h3>
+    <section aria-label="최근 28일 판매량과 판매가능재고">
+      <h3>최근 28일 판매량과 판매가능재고</h3>
       <p className="observation-evidence__window">
         {formatDate(window.startDate)} ~ {formatDate(window.endDate)} ({window.dayCount}일)
       </p>
@@ -47,11 +47,15 @@ export function ObservationEvidence({ window }: { window: ObservationWindow }) {
         className="observation-evidence__chart"
         viewBox="0 0 100 40"
         role="img"
-        aria-label="일별 판매수량과 가용재고 추이 (참고용, 정확한 값은 아래 표를 확인하세요)"
+        aria-label="일별 판매량과 판매가능재고 추이 (참고용, 정확한 값은 아래 표를 확인하세요)"
       >
         <path d={pathFor(availableValues)} fill="none" className="observation-evidence__line observation-evidence__line--available" />
         <path d={pathFor(soldValues)} fill="none" className="observation-evidence__line observation-evidence__line--sold" />
       </svg>
+      <ul className="observation-evidence__legend">
+        <li className="observation-evidence__legend-item observation-evidence__legend-item--available">판매가능재고</li>
+        <li className="observation-evidence__legend-item observation-evidence__legend-item--sold">판매량</li>
+      </ul>
 
       <div className="observation-evidence__scroll">
         <table>
@@ -59,20 +63,18 @@ export function ObservationEvidence({ window }: { window: ObservationWindow }) {
           <thead>
             <tr>
               <th scope="col">날짜</th>
-              <th scope="col">재고</th>
-              <th scope="col">예약</th>
+              <th scope="col">실재고</th>
+              <th scope="col">예약재고</th>
               <th scope="col">품절</th>
               <th scope="col">판매수량</th>
               <th scope="col">거래건수</th>
               <th scope="col">최대 거래수량</th>
               <th scope="col">평균 판매가</th>
-              <th scope="col">재고 출처</th>
-              <th scope="col">판매 출처</th>
             </tr>
           </thead>
           <tbody>
-            {days.map((day) => (
-              <tr key={day.date ?? Math.random()}>
+            {days.map((day, index) => (
+              <tr key={day.date ?? index}>
                 <td>{formatDate(day.date)}</td>
                 <td>{formatQuantity(day.onHandQuantity)}</td>
                 <td>{formatQuantity(day.reservedQuantity)}</td>
@@ -81,13 +83,35 @@ export function ObservationEvidence({ window }: { window: ObservationWindow }) {
                 <td>{formatQuantity(day.transactionCount)}</td>
                 <td>{formatQuantity(day.maxTransactionQuantity)}</td>
                 <td>{formatMoney(day.averageSellingPrice)}</td>
-                <td>{day.inventorySourceType ?? '—'}</td>
-                <td>{day.salesSourceType ?? '—'}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      <details className="observation-evidence__source">
+        <summary>데이터 출처 보기</summary>
+        <div className="observation-evidence__scroll">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">날짜</th>
+                <th scope="col">재고 출처</th>
+                <th scope="col">판매 출처</th>
+              </tr>
+            </thead>
+            <tbody>
+              {days.map((day, index) => (
+                <tr key={day.date ?? index}>
+                  <td>{formatDate(day.date)}</td>
+                  <td>{day.inventorySourceType ?? '—'}</td>
+                  <td>{day.salesSourceType ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
     </section>
   )
 }

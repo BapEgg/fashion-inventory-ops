@@ -12,11 +12,13 @@ import com.bapegg.stockpilot.demand.DemandSignalType;
 import com.bapegg.stockpilot.demand.InventoryExceptionType;
 import com.bapegg.stockpilot.demand.InventorySeverity;
 import com.bapegg.stockpilot.demand.MetricQualityFlag;
+import com.bapegg.stockpilot.demand.TransferCandidateRejectionReason;
 import com.bapegg.stockpilot.inventory.SpDailySale;
 import com.bapegg.stockpilot.inventory.SpDailySaleRepository;
 import com.bapegg.stockpilot.inventory.SpInventorySnapshot;
 import com.bapegg.stockpilot.inventory.SpInventorySnapshotRepository;
 import com.bapegg.stockpilot.rebalance.CandidateStatus;
+import com.bapegg.stockpilot.rebalance.DecisionStatus;
 import com.bapegg.stockpilot.rebalance.OpenTransferStatus;
 import com.bapegg.stockpilot.rebalance.RecommendationMode;
 import com.bapegg.stockpilot.rebalance.SpCandidateReason;
@@ -151,6 +153,9 @@ public class Mvp2InventoryExceptionQueryService {
             String storeIdParam,
             String skuIdParam,
             Boolean hasExecutableCandidate,
+            List<String> workStatusParams,
+            String sortByParam,
+            String sortDirectionParam,
             Integer pageParam,
             Integer sizeParam) {
 
@@ -179,6 +184,26 @@ public class Mvp2InventoryExceptionQueryService {
         String storeId = validateExactMatch("storeId", storeIdParam, fieldErrors);
         String skuId = validateExactMatch("skuId", skuIdParam, fieldErrors);
 
+        Set<AllocatorWorkStatus> workStatuses = parseEnumFilter(
+                "workStatus", workStatusParams, AllocatorWorkStatus.class, EnumSet.allOf(AllocatorWorkStatus.class), fieldErrors);
+
+        ExceptionSortKey sortBy = ExceptionSortKey.WORK_PRIORITY;
+        if (sortByParam != null) {
+            try {
+                sortBy = ExceptionSortKey.valueOf(sortByParam);
+            } catch (IllegalArgumentException e) {
+                fieldErrors.add(new ApiFieldError("sortBy", "FORMAT", "허용되지 않는 sortBy 값입니다."));
+            }
+        }
+        ExceptionSortDirection sortDirection = defaultSortDirection(sortBy);
+        if (sortDirectionParam != null) {
+            try {
+                sortDirection = ExceptionSortDirection.valueOf(sortDirectionParam);
+            } catch (IllegalArgumentException e) {
+                fieldErrors.add(new ApiFieldError("sortDirection", "FORMAT", "허용되지 않는 sortDirection 값입니다."));
+            }
+        }
+
         int page = pageParam == null ? 0 : pageParam;
         if (page < 0) {
             fieldErrors.add(new ApiFieldError("page", "FORMAT", "page는 0 이상이어야 합니다."));
@@ -203,7 +228,14 @@ public class Mvp2InventoryExceptionQueryService {
         }
 
         return buildPage(run, exceptionTypes, severities, signals, confidences, qualityFlags,
-                storeId, skuId, hasExecutableCandidate, page, size);
+                storeId, skuId, hasExecutableCandidate, workStatuses, sortBy, sortDirection, page, size);
+    }
+
+    private static ExceptionSortDirection defaultSortDirection(ExceptionSortKey sortBy) {
+        return switch (sortBy) {
+            case WORK_PRIORITY, COVERAGE_DAYS, STORE_PRODUCT -> ExceptionSortDirection.ASC;
+            case SALES_EXPOSURE, SHORTAGE_QUANTITY -> ExceptionSortDirection.DESC;
+        };
     }
 
     private Mvp2InventoryExceptionPage buildPage(
@@ -216,6 +248,9 @@ public class Mvp2InventoryExceptionQueryService {
             String storeId,
             String skuId,
             Boolean hasExecutableCandidate,
+            Set<AllocatorWorkStatus> workStatuses,
+            ExceptionSortKey sortBy,
+            ExceptionSortDirection sortDirection,
             int page,
             int size) {
 
@@ -224,25 +259,32 @@ public class Mvp2InventoryExceptionQueryService {
         boolean signalActive = signals != null;
         boolean confidenceActive = confidences != null;
         boolean qualityFlagActive = qualityFlags != null;
+        boolean workStatusActive = workStatuses != null;
 
         Set<InventoryExceptionType> exceptionTypesBind = exceptionTypeActive ? exceptionTypes : EnumSet.of(InventoryExceptionType.NORMAL);
         Set<InventorySeverity> severitiesBind = severityActive ? severities : EnumSet.of(InventorySeverity.CRITICAL);
         Set<DemandSignalType> signalsBind = signalActive ? signals : EnumSet.of(DemandSignalType.STABLE_REPEAT);
         Set<DemandConfidence> confidencesBind = confidenceActive ? confidences : EnumSet.of(DemandConfidence.HIGH);
         Set<MetricQualityFlag> qualityFlagsBind = qualityFlagActive ? qualityFlags : EnumSet.of(MetricQualityFlag.OOS_CENSORED);
+        Set<String> workStatusNamesBind = workStatusActive
+                ? workStatuses.stream().map(Enum::name).collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new))
+                : Set.of(AllocatorWorkStatus.DECISION_REQUIRED.name());
 
         LocalDate priceDate = run.getAnalysisDate().minusDays(1);
         String inputVersion = run.getInputSnapshotVersion();
         Pageable pageable = PageRequest.of(page, size, Sort.unsorted());
 
-        List<Long> ids = metricRepository.findPagedIds(
+        List<Long> ids = findPagedIds(
                 run.getAnalysisRunId(), exceptionTypeActive, exceptionTypesBind, severityActive, severitiesBind,
                 signalActive, signalsBind, confidenceActive, confidencesBind, qualityFlagActive, qualityFlagsBind,
-                storeId, skuId, hasExecutableCandidate, priceDate, inputVersion, pageable);
+                storeId, skuId, hasExecutableCandidate, workStatusActive, workStatusNamesBind,
+                priceDate, inputVersion, sortBy, sortDirection, pageable);
         long totalElements = metricRepository.countPaged(
                 run.getAnalysisRunId(), exceptionTypeActive, exceptionTypesBind, severityActive, severitiesBind,
                 signalActive, signalsBind, confidenceActive, confidencesBind, qualityFlagActive, qualityFlagsBind,
-                storeId, skuId, hasExecutableCandidate);
+                storeId, skuId, hasExecutableCandidate, workStatusActive, workStatusNamesBind);
+
+        AllocatorWorkSummary summary = buildSummary(run.getAnalysisRunId(), priceDate, inputVersion);
 
         List<Mvp2InventoryExceptionListItem> items = ids.isEmpty()
                 ? List.of()
@@ -255,7 +297,75 @@ public class Mvp2InventoryExceptionQueryService {
         return new Mvp2InventoryExceptionPage(
                 run.getAnalysisRunId(), run.getAnalysisDate(), run.getInputSnapshotVersion(), run.getRuleVersion(),
                 run.getCompletedAt(), ASSUMPTION_TYPE, ASSUMPTION_NOTICE, page, size, totalElements, totalPages,
-                hasPrevious, hasNext, items);
+                hasPrevious, hasNext, items, summary);
+    }
+
+    /** Dispatches to the one {@code findPagedIds*} repository method matching {@code sortBy}/{@code sortDirection}, per section 4.2. */
+    private List<Long> findPagedIds(
+            Long runId, boolean exceptionTypeActive, Set<InventoryExceptionType> exceptionTypes,
+            boolean severityActive, Set<InventorySeverity> severities, boolean signalActive, Set<DemandSignalType> signals,
+            boolean confidenceActive, Set<DemandConfidence> confidences, boolean qualityFlagActive, Set<MetricQualityFlag> qualityFlags,
+            String storeId, String skuId, Boolean hasExecutableCandidate, boolean workStatusActive, Set<String> workStatusNames,
+            LocalDate priceDate, String inputVersion, ExceptionSortKey sortBy, ExceptionSortDirection sortDirection, Pageable pageable) {
+        boolean asc = sortDirection == ExceptionSortDirection.ASC;
+        return switch (sortBy) {
+            case WORK_PRIORITY -> asc
+                    ? metricRepository.findPagedIdsByWorkPriorityAsc(runId, exceptionTypeActive, exceptionTypes, severityActive, severities,
+                            signalActive, signals, confidenceActive, confidences, qualityFlagActive, qualityFlags, storeId, skuId,
+                            hasExecutableCandidate, workStatusActive, workStatusNames, priceDate, inputVersion, pageable)
+                    : metricRepository.findPagedIdsByWorkPriorityDesc(runId, exceptionTypeActive, exceptionTypes, severityActive, severities,
+                            signalActive, signals, confidenceActive, confidences, qualityFlagActive, qualityFlags, storeId, skuId,
+                            hasExecutableCandidate, workStatusActive, workStatusNames, priceDate, inputVersion, pageable);
+            case SALES_EXPOSURE -> asc
+                    ? metricRepository.findPagedIdsBySalesExposureAsc(runId, exceptionTypeActive, exceptionTypes, severityActive, severities,
+                            signalActive, signals, confidenceActive, confidences, qualityFlagActive, qualityFlags, storeId, skuId,
+                            hasExecutableCandidate, workStatusActive, workStatusNames, priceDate, inputVersion, pageable)
+                    : metricRepository.findPagedIdsBySalesExposureDesc(runId, exceptionTypeActive, exceptionTypes, severityActive, severities,
+                            signalActive, signals, confidenceActive, confidences, qualityFlagActive, qualityFlags, storeId, skuId,
+                            hasExecutableCandidate, workStatusActive, workStatusNames, priceDate, inputVersion, pageable);
+            case SHORTAGE_QUANTITY -> asc
+                    ? metricRepository.findPagedIdsByShortageQuantityAsc(runId, exceptionTypeActive, exceptionTypes, severityActive, severities,
+                            signalActive, signals, confidenceActive, confidences, qualityFlagActive, qualityFlags, storeId, skuId,
+                            hasExecutableCandidate, workStatusActive, workStatusNames, priceDate, inputVersion, pageable)
+                    : metricRepository.findPagedIdsByShortageQuantityDesc(runId, exceptionTypeActive, exceptionTypes, severityActive, severities,
+                            signalActive, signals, confidenceActive, confidences, qualityFlagActive, qualityFlags, storeId, skuId,
+                            hasExecutableCandidate, workStatusActive, workStatusNames, priceDate, inputVersion, pageable);
+            case COVERAGE_DAYS -> asc
+                    ? metricRepository.findPagedIdsByCoverageDaysAsc(runId, exceptionTypeActive, exceptionTypes, severityActive, severities,
+                            signalActive, signals, confidenceActive, confidences, qualityFlagActive, qualityFlags, storeId, skuId,
+                            hasExecutableCandidate, workStatusActive, workStatusNames, priceDate, inputVersion, pageable)
+                    : metricRepository.findPagedIdsByCoverageDaysDesc(runId, exceptionTypeActive, exceptionTypes, severityActive, severities,
+                            signalActive, signals, confidenceActive, confidences, qualityFlagActive, qualityFlags, storeId, skuId,
+                            hasExecutableCandidate, workStatusActive, workStatusNames, priceDate, inputVersion, pageable);
+            case STORE_PRODUCT -> asc
+                    ? metricRepository.findPagedIdsByStoreProductAsc(runId, exceptionTypeActive, exceptionTypes, severityActive, severities,
+                            signalActive, signals, confidenceActive, confidences, qualityFlagActive, qualityFlags, storeId, skuId,
+                            hasExecutableCandidate, workStatusActive, workStatusNames, priceDate, inputVersion, pageable)
+                    : metricRepository.findPagedIdsByStoreProductDesc(runId, exceptionTypeActive, exceptionTypes, severityActive, severities,
+                            signalActive, signals, confidenceActive, confidences, qualityFlagActive, qualityFlags, storeId, skuId,
+                            hasExecutableCandidate, workStatusActive, workStatusNames, priceDate, inputVersion, pageable);
+        };
+    }
+
+    /** Builds {@link AllocatorWorkSummary} from {@link SpInventoryMetricRepository#summarize}'s single aggregate row, per section 4.4. */
+    private AllocatorWorkSummary buildSummary(Long runId, LocalDate priceDate, String inputVersion) {
+        List<Object[]> rows = metricRepository.summarize(runId, priceDate, inputVersion);
+        Object[] row = rows.get(0);
+        return new AllocatorWorkSummary(
+                asLong(row[0]), asLong(row[1]), asLong(row[2]), asLong(row[3]), asLong(row[4]), asLong(row[5]), asLong(row[6]),
+                asMoney(row[7]), asLong(row[8]));
+    }
+
+    private static long asLong(Object value) {
+        return value == null ? 0L : ((Number) value).longValue();
+    }
+
+    private static BigDecimal asMoney(Object value) {
+        if (value == null) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+        BigDecimal decimal = value instanceof BigDecimal bd ? bd : new BigDecimal(value.toString());
+        return decimal.setScale(2, RoundingMode.HALF_UP);
     }
 
     private List<Mvp2InventoryExceptionListItem> buildListItems(
@@ -280,9 +390,58 @@ public class Mvp2InventoryExceptionQueryService {
         flagsByMetric.values().forEach(list -> list.sort(Comparator.naturalOrder()));
 
         Map<Long, int[]> candidateCounts = new HashMap<>();
+        Map<Long, List<SpRebalanceRecommendation>> recommendationsByMetric = new HashMap<>();
         for (SpRebalanceRecommendation r : recommendationRepository.findByReceiverMetricIdInOrDonorMetricIdIn(ids)) {
             addCandidateCount(candidateCounts, r.getReceiverMetric().getInventoryMetricId(), r, ids);
             addCandidateCount(candidateCounts, r.getDonorMetric().getInventoryMetricId(), r, ids);
+            addRecommendationForMetric(recommendationsByMetric, r.getReceiverMetric().getInventoryMetricId(), r, ids);
+            addRecommendationForMetric(recommendationsByMetric, r.getDonorMetric().getInventoryMetricId(), r, ids);
+        }
+
+        // Per section 4.5's query ceiling contract, statement count must never depend on how many
+        // rows a page happens to contain -- both bulk-fetches below always execute exactly once,
+        // never guarded by an `isEmpty()` skip, so a page whose rows have no executable/rejected
+        // candidates issues the identical statement count as one that does. `findAllById`-style
+        // `IN :ids` queries with an empty id list still round-trip (returning zero rows) rather
+        // than short-circuiting, keeping this deterministic.
+        List<Long> executableRecommendationIds = recommendationsByMetric.values().stream().flatMap(List::stream)
+                .filter(r -> r.getCandidateStatus() == CandidateStatus.ELIGIBLE && r.getRecommendationMode() == RecommendationMode.RECOMMENDED)
+                .map(SpRebalanceRecommendation::getRecommendationId).distinct().toList();
+        Map<Long, DecisionStatus> latestDecisionStatusByRecommendation = new HashMap<>();
+        decisionRepository.findByRecommendation_RecommendationIdInOrderByRecommendation_RecommendationIdAscDecisionSequenceDesc(executableRecommendationIds)
+                .forEach(d -> latestDecisionStatusByRecommendation.putIfAbsent(d.getRecommendation().getRecommendationId(), d.getDecisionStatus()));
+
+        List<Long> rejectedRecommendationIds = recommendationsByMetric.values().stream().flatMap(List::stream)
+                .filter(r -> r.getCandidateStatus() == CandidateStatus.REJECTED)
+                .map(SpRebalanceRecommendation::getRecommendationId).distinct().toList();
+        Map<Long, List<TransferCandidateRejectionReason>> reasonsByRejectedRecommendation = new HashMap<>();
+        candidateReasonRepository.findByRecommendation_RecommendationIdInOrderByReasonOrderAsc(rejectedRecommendationIds)
+                .forEach(reason -> reasonsByRejectedRecommendation
+                        .computeIfAbsent(reason.getRecommendation().getRecommendationId(), k -> new ArrayList<>())
+                        .add(reason.getReasonCode()));
+
+        Map<Long, AllocatorWorkStatus> workStatusByMetric = new HashMap<>();
+        Map<Long, List<TransferCandidateRejectionReason>> blockingReasonsByMetric = new HashMap<>();
+        for (Long id : ids) {
+            List<SpRebalanceRecommendation> forMetric = recommendationsByMetric.getOrDefault(id, List.of());
+            List<AllocatorWorkStatusResolver.ExecutableCandidate> executable = forMetric.stream()
+                    .filter(r -> r.getCandidateStatus() == CandidateStatus.ELIGIBLE && r.getRecommendationMode() == RecommendationMode.RECOMMENDED)
+                    .map(r -> new AllocatorWorkStatusResolver.ExecutableCandidate(
+                            r.getRecommendationId(), latestDecisionStatusByRecommendation.get(r.getRecommendationId())))
+                    .toList();
+            workStatusByMetric.put(id, AllocatorWorkStatusResolver.resolve(metricsById.get(id).getInventoryExceptionType(), executable));
+
+            if (executable.isEmpty()) {
+                Set<TransferCandidateRejectionReason> distinct = java.util.EnumSet.noneOf(TransferCandidateRejectionReason.class);
+                for (SpRebalanceRecommendation r : forMetric) {
+                    if (r.getCandidateStatus() == CandidateStatus.REJECTED) {
+                        distinct.addAll(reasonsByRejectedRecommendation.getOrDefault(r.getRecommendationId(), List.of()));
+                    }
+                }
+                blockingReasonsByMetric.put(id, distinct.stream().sorted().toList());
+            } else {
+                blockingReasonsByMetric.put(id, List.of());
+            }
         }
 
         Set<String> storeIds = new java.util.HashSet<>();
@@ -332,9 +491,18 @@ public class Mvp2InventoryExceptionQueryService {
                     metric.getCalculationVersion(),
                     flagsByMetric.getOrDefault(id, List.of()),
                     upcomingQuantity, nextEta, price, impact,
-                    counts[0], counts[1], counts[2], counts[0] > 0));
+                    counts[0], counts[1], counts[2], counts[0] > 0,
+                    workStatusByMetric.get(id), blockingReasonsByMetric.getOrDefault(id, List.of())));
         }
         return items;
+    }
+
+    private static void addRecommendationForMetric(
+            Map<Long, List<SpRebalanceRecommendation>> byMetric, Long metricId, SpRebalanceRecommendation r, List<Long> ids) {
+        if (!ids.contains(metricId)) {
+            return;
+        }
+        byMetric.computeIfAbsent(metricId, k -> new ArrayList<>()).add(r);
     }
 
     private static void addCandidateCount(Map<Long, int[]> counts, Long metricId, SpRebalanceRecommendation r, List<Long> ids) {

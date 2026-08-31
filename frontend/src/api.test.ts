@@ -40,6 +40,9 @@ const DEFAULT_FILTERS: ExceptionListFilters = {
   storeId: null,
   skuId: null,
   hasExecutableCandidate: null,
+  workStatus: [],
+  sortBy: 'WORK_PRIORITY',
+  sortDirection: null,
   page: 0,
   size: 20,
 }
@@ -98,6 +101,9 @@ describe('listExceptions query building', () => {
       severity: ['CRITICAL'],
       storeId: 'ST-1',
       hasExecutableCandidate: true,
+      workStatus: ['DECISION_REQUIRED', 'ON_HOLD'],
+      sortBy: 'SALES_EXPOSURE',
+      sortDirection: 'DESC',
       page: 2,
       size: 50,
     }
@@ -110,6 +116,9 @@ describe('listExceptions query building', () => {
     expect(query.getAll('severity')).toEqual(['CRITICAL'])
     expect(query.get('storeId')).toBe('ST-1')
     expect(query.get('hasExecutableCandidate')).toBe('true')
+    expect(query.getAll('workStatus')).toEqual(['DECISION_REQUIRED', 'ON_HOLD'])
+    expect(query.get('sortBy')).toBe('SALES_EXPOSURE')
+    expect(query.get('sortDirection')).toBe('DESC')
     expect(query.get('analysisRunId')).toBe('9')
     expect(query.get('page')).toBe('2')
     expect(query.get('size')).toBe('50')
@@ -126,6 +135,9 @@ describe('listExceptions query building', () => {
     expect(query.has('storeId')).toBe(false)
     expect(query.has('skuId')).toBe(false)
     expect(query.has('hasExecutableCandidate')).toBe(false)
+    expect(query.has('workStatus')).toBe(false)
+    expect(query.has('sortDirection')).toBe(false)
+    expect(query.get('sortBy')).toBe('WORK_PRIORITY')
   })
 })
 

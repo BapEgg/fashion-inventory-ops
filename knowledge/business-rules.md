@@ -324,14 +324,18 @@ scenarioQuantity = floor(rawQuantity / packageMultiple) * packageMultiple
 
 ## 9. 검토 우선순위
 
-불투명한 단일 점수를 만들지 않고 다음 정렬 키를 순서대로 사용한다.
+불투명한 단일 점수를 만들지 않고 다음 정렬 키를 순서대로 사용한다. Allocator workbench
+redesign(`2026-08-30-allocator-workbench-redesign-spec.md` section 4.2) 이후 `WORK_PRIORITY`
+정렬의 1순위는 `AllocatorWorkStatus`(9.1 참조)이며, 기존의 단순 "실행 가능한 후보 있음/없음"
+이분법을 대체한다.
 
-1. 심각도: `CRITICAL` → `HIGH` → `REVIEW`
-2. 조치 가능성: 실행 가능한 공급 후보 있음 → 없음
-3. 신뢰도: `HIGH` → `MEDIUM` → `LOW` → `NONE`
-4. BASE 예상 부족수량 내림차순
-5. 예상 매출 영향(`base shortage × current selling price`) 내림차순
-6. 안정적 tie-breaker: `storeId`, `skuId` 오름차순
+1. 업무 상태: `DECISION_REQUIRED` → `ON_HOLD` → `REVIEW_INPUT` → `NO_TRANSFER_OPTION` →
+   `COMPLETED`
+2. 심각도: `CRITICAL` → `HIGH` → `REVIEW`
+3. 예상 매출 영향(`base shortage × current selling price`) 내림차순, `NULL`은 항상 마지막
+4. BASE 예상 부족수량 내림차순, `NULL`은 항상 마지막
+5. 신뢰도: `HIGH` → `MEDIUM` → `LOW` → `NONE`
+6. 안정적 tie-breaker: `storeId`, `skuId`, `inventoryMetricId` 오름차순
 
 - `CRITICAL`: 가장 빠른 확정 입고 또는 활성 이동 경로의 도착 전에 BASE 예상
   재고가 0 이하
@@ -340,6 +344,29 @@ scenarioQuantity = floor(rawQuantity / packageMultiple) * packageMultiple
 
 매출 영향은 정렬 보조값일 뿐 이익, 손실 확률 또는 실제 재무 예측으로 표시하지
 않는다.
+
+`WORK_PRIORITY` 외에 `SALES_EXPOSURE`, `SHORTAGE_QUANTITY`, `COVERAGE_DAYS`, `STORE_PRODUCT`
+단독 정렬을 API가 지원하며, 각 sort는 항상 위와 동일한 `storeId, skuId, inventoryMetricId`
+tie-breaker로 끝난다. `sortDirection`을 명시하지 않으면 sort별 고정 기본 방향
+(`WORK_PRIORITY`/`COVERAGE_DAYS`/`STORE_PRODUCT`는 `ASC`, `SALES_EXPOSURE`/
+`SHORTAGE_QUANTITY`는 `DESC`)을 사용한다.
+
+### 9.1 `AllocatorWorkStatus` 파생
+
+한 metric에 연결된 후보 중 `candidateStatus=ELIGIBLE`이고 `recommendationMode=RECOMMENDED`인
+후보만 "실행 후보"로 본다(`COMPARISON_ONLY`는 실행 후보가 아니다). 실행 후보의 최신 결정을
+기준으로 다음 순서를 한 번만 적용한다.
+
+1. 실행 후보 중 최신 결정이 없거나 `PENDING`인 후보가 하나라도 있으면 `DECISION_REQUIRED`
+2. 아니고 최신 결정이 `HELD`인 실행 후보가 하나라도 있으면 `ON_HOLD`
+3. 아니고 실행 후보가 하나 이상이면 `COMPLETED`(이때 모든 실행 후보의 최신 결정은 terminal)
+4. 실행 후보가 없고 `inventoryExceptionType`이 `REVIEW_REQUIRED` 또는 `NON_ACTIONABLE`이면
+   `REVIEW_INPUT`
+5. 나머지는 `NO_TRANSFER_OPTION`
+
+Java(`AllocatorWorkStatusResolver`)와 목록 조회 SQL(`InventoryExceptionQuerySql`)이 이 파생을
+각자 구현하며, 두 구현이 어긋나지 않는지는 통합테스트로 고정한다. Frontend는 이 상태를 절대
+재계산하지 않는다.
 
 ## 10. 결정, stale 검증과 감사
 
@@ -358,10 +385,18 @@ scenarioQuantity = floor(rawQuantity / packageMultiple) * packageMultiple
 선택수량을 전달한다. 한 트랜잭션에서 다음을 수행한다.
 
 1. 공유 donor의 재고 스냅샷 행을 잠근다.
-2. 최신 재고, 예약, 입고, 진행 중 이동과 이미 승인된 draft 수량을 다시 읽는다.
-3. 동일 후보·입력 버전인지, 모든 제약과 수량 범위를 다시 계산한다.
-4. 실패하면 `STALE_RECOMMENDATION`으로 아무 것도 저장하지 않는다.
-5. 성공하면 `APPROVED` 결정과 `TRANSFER_DRAFT`를 함께 저장한다.
+2. 후보를 잠근 뒤 `candidateStatus != ELIGIBLE` 또는 `recommendationMode != RECOMMENDED`이면
+   상태(`HELD`/`APPROVED`/`REJECTED`) 구분 없이 `STALE_RECOMMENDATION`으로 즉시 거부하고
+   decision·basis·draft 어느 것도 쓰지 않는다. `COMPARISON_ONLY`는 비교 자료일 뿐 승인·보류·
+   반려 대상이 아니다. 이 검증은 버전 검증 뒤, 상태별 쓰기 분기 전에 한 번만 수행한다.
+3. 최신 재고, 예약, 입고, 진행 중 이동과 이미 승인된 draft 수량을 다시 읽는다.
+4. 동일 후보·입력 버전인지, 모든 제약과 수량 범위를 다시 계산한다.
+5. 실패하면 `STALE_RECOMMENDATION`으로 아무 것도 저장하지 않는다.
+6. 성공하면 `APPROVED` 결정과 `TRANSFER_DRAFT`를 함께 저장한다.
+
+MANUAL 수량시험도 동일한 `candidateStatus`/`recommendationMode` 검증을 거친다. 다만 오류로
+거부하지 않고 `feasible=false`와 위반사유 `CANDIDATE_INELIGIBLE`을 반환한다 -- 시험은 저장하지
+않으므로 fail-closed의 형태만 승인 경로와 다를 뿐 결론은 같다.
 
 실제 재고는 차감하지 않는다. 같은 공급 재고를 두 수요 매장이 동시에 승인해도
 행 잠금과 승인 draft 재합산 때문에 공급 가능량을 초과할 수 없어야 한다.

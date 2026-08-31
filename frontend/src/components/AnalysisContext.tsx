@@ -47,10 +47,11 @@ function toRunContext(response: RunLike, fallbackRunId?: number): RunContext | n
 }
 
 /**
- * The compact analysis toolbar, per the React wiring spec section 3 -- not a hero/card, just the
- * control that changes the current data context. Owns its own launch/poll lifecycle; only tells
- * the parent about a COMPLETED run via {@link onRunCompleted}, since the parent (not this
- * component) resets the downstream list/detail/decision state on a new run.
+ * The compact "재고 현황 기준" utility bar, per the redesign spec section 6.3 -- not a big
+ * developer-facing run form, just the control that changes the current data context. Owns its own
+ * launch/poll lifecycle; only tells the parent about a COMPLETED run via {@link onRunCompleted},
+ * since the parent (not this component) resets the downstream list/detail/decision state on a new
+ * run.
  */
 export function AnalysisContext({
   onRunStarting,
@@ -113,7 +114,7 @@ export function AnalysisContext({
           setRun(context)
           if (context.status === 'COMPLETED') {
             setPhase('completed')
-            setJustCompletedMessage('분석이 완료되었습니다.')
+            setJustCompletedMessage('재고 현황 갱신이 완료되었습니다.')
             onRunCompleted(context, false)
           } else if (context.status === 'FAILED') {
             setPhase('failed')
@@ -162,7 +163,9 @@ export function AnalysisContext({
       setRun(context)
       if (context.status === 'COMPLETED') {
         setPhase('completed')
-        setJustCompletedMessage(response.alreadyCompleted ? '기존 완료 결과를 불러왔습니다.' : '분석이 완료되었습니다.')
+        setJustCompletedMessage(
+          response.alreadyCompleted ? '기존 갱신 결과를 불러왔습니다.' : '재고 현황 갱신이 완료되었습니다.',
+        )
         onRunCompleted(context, response.alreadyCompleted)
       } else if (context.status === 'FAILED') {
         setPhase('failed')
@@ -199,7 +202,7 @@ export function AnalysisContext({
         setRun(context)
         if (context.status === 'COMPLETED') {
           setPhase('completed')
-          setJustCompletedMessage('분석이 완료되었습니다.')
+          setJustCompletedMessage('재고 현황 갱신이 완료되었습니다.')
           onRunCompleted(context, false)
         } else if (context.status === 'FAILED') {
           setPhase('failed')
@@ -216,10 +219,10 @@ export function AnalysisContext({
   const busy = phase === 'launching' || phase === 'polling'
 
   return (
-    <section className="analysis-toolbar" aria-label="분석 실행">
+    <section className="analysis-toolbar" aria-label="재고 현황 기준">
       <div className="analysis-toolbar__inputs">
         <label>
-          분석 기준일
+          기준일
           <input
             type="date"
             value={analysisDate}
@@ -227,20 +230,11 @@ export function AnalysisContext({
             onChange={(e) => setAnalysisDate(e.target.value)}
           />
         </label>
-        <label>
-          입력 스냅샷 버전
-          <input
-            type="text"
-            value={inputSnapshotVersion}
-            disabled={busy}
-            maxLength={64}
-            onChange={(e) => setInputSnapshotVersion(e.target.value)}
-          />
-        </label>
-        <span className="analysis-toolbar__preset-note">데모 preset</span>
-        <button type="button" onClick={handleRunAnalysis} disabled={busy}>
-          {busy ? '실행 중…' : '분석 실행'}
+        <button type="button" onClick={handleRunAnalysis} disabled={busy} className="btn-primary">
+          {busy ? '갱신 중…' : '재고 현황 갱신'}
         </button>
+        {run && <span className="analysis-toolbar__status-text">{analysisRunStatusLabel(run.status)}</span>}
+        {run?.completedAt && <span className="analysis-toolbar__completed-at">완료 {formatDateTime(run.completedAt)}</span>}
       </div>
 
       {inputError && (
@@ -250,49 +244,46 @@ export function AnalysisContext({
       )}
 
       <div aria-live="polite" className="analysis-toolbar__status">
-        {phase === 'polling' && <p>분석이 진행 중입니다. 자동으로 상태를 확인하고 있습니다…</p>}
+        {phase === 'polling' && <p>재고 현황을 갱신하고 있습니다…</p>}
         {phase === 'timeout' && (
           <div>
-            <p>계속 실행 중입니다.</p>
+            <p>갱신이 계속 진행 중입니다</p>
             <button type="button" onClick={handleManualStatusRefresh}>
-              상태 새로고침
+              상태 확인
             </button>
           </div>
         )}
-        {phase === 'failed' && <p>분석 실행에 실패했습니다.</p>}
+        {phase === 'failed' && <p>재고 현황 갱신에 실패했습니다.</p>}
         {justCompletedMessage && phase === 'completed' && <p>{justCompletedMessage}</p>}
       </div>
 
       {error && <ProblemAlert error={error} onRetry={error.retryable ? handleRunAnalysis : undefined} />}
 
-      {run && (
+      <details className="analysis-toolbar__details">
+        <summary>데이터 기준 상세</summary>
         <dl className="analysis-toolbar__context">
           <div>
-            <dt>run ID</dt>
-            <dd>{run.analysisRunId}</dd>
-          </div>
-          <div>
-            <dt>기준일</dt>
-            <dd>{run.analysisDate ?? '—'}</dd>
-          </div>
-          <div>
-            <dt>입력 버전</dt>
-            <dd>{run.inputSnapshotVersion ?? '—'}</dd>
+            <dt>입력 스냅샷 버전</dt>
+            <dd>
+              <input
+                type="text"
+                value={inputSnapshotVersion}
+                disabled={busy}
+                maxLength={64}
+                onChange={(e) => setInputSnapshotVersion(e.target.value)}
+              />
+            </dd>
           </div>
           <div>
             <dt>규칙 버전</dt>
-            <dd>{run.ruleVersion ?? '—'}</dd>
+            <dd>{run?.ruleVersion ?? '—'}</dd>
           </div>
           <div>
-            <dt>상태</dt>
-            <dd>{analysisRunStatusLabel(run.status)}</dd>
-          </div>
-          <div>
-            <dt>완료 시각</dt>
-            <dd>{formatDateTime(run.completedAt)}</dd>
+            <dt>run ID</dt>
+            <dd>{run?.analysisRunId ?? '—'}</dd>
           </div>
         </dl>
-      )}
+      </details>
     </section>
   )
 }

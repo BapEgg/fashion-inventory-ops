@@ -36,6 +36,21 @@ function candidate(overrides: Partial<CandidateDetail> = {}): CandidateDetail {
   }
 }
 
+function renderPanel(overrides: Partial<Parameters<typeof DecisionPanel>[0]> = {}) {
+  const props = {
+    candidate: candidate(),
+    runTuple: RUN_TUPLE,
+    currentStoreName: '본점',
+    productName: '시그니처 티셔츠',
+    actorLabel: 'tester',
+    onActorLabelChange: vi.fn(),
+    onRequireDetailRefresh: vi.fn(),
+    onDecisionSaved: vi.fn(),
+    ...overrides,
+  }
+  return { ...render(<DecisionPanel {...props} />), props }
+}
+
 function emptyHistory(recommendationId = 55): Mvp2DecisionHistoryResponse {
   return { recommendationId, currentStatus: null, decisions: [] }
 }
@@ -92,6 +107,12 @@ async function flush() {
   })
 }
 
+/** Fills the required 사유/처리 메모 fields inside the (auto-opened when required) 메모 추가 disclosure. */
+function fillReason(reasonValue: string, memo: string) {
+  fireEvent.change(screen.getByLabelText('사유'), { target: { value: reasonValue } })
+  fireEvent.change(screen.getByLabelText('처리 메모'), { target: { value: memo } })
+}
+
 beforeEach(() => {
   vi.useFakeTimers()
   vi.mocked(api.getDecisionHistory).mockResolvedValue(emptyHistory())
@@ -103,7 +124,7 @@ afterEach(() => {
 })
 
 describe('DecisionPanel MANUAL simulation', () => {
-  it('shows every violation, all suggestions, and disables approve for an infeasible simulation', async () => {
+  it('auto-simulates the recommended quantity once on selection and shows every violation for an infeasible result', async () => {
     vi.mocked(api.simulateManualQuantity).mockResolvedValue(
       feasibleSimulation({
         feasible: false,
@@ -113,81 +134,75 @@ describe('DecisionPanel MANUAL simulation', () => {
         projection: null,
       }),
     )
-    render(<DecisionPanel candidate={candidate()} runTuple={RUN_TUPLE} actorLabel="tester" onActorLabelChange={vi.fn()} onRequireDetailRefresh={vi.fn()} />)
+    renderPanel()
     await flush()
 
-    fireEvent.click(screen.getByRole('button', { name: '수량 시험' }))
-    await flush()
-
-    expect(screen.getByText('실행할 수 없는 수량입니다.')).toBeInTheDocument()
-    expect(screen.getByText('경로 최소 이동수량보다 적습니다')).toBeInTheDocument()
-    expect(screen.getByText('공급 매장의 이동 가능 수량을 초과합니다')).toBeInTheDocument()
+    expect(api.simulateManualQuantity).toHaveBeenCalledTimes(1)
+    expect(screen.getByText('이 수량으로는 이동할 수 없습니다.')).toBeInTheDocument()
+    expect(screen.getByText('이동 조건의 최소 이동수량보다 적습니다')).toBeInTheDocument()
+    expect(screen.getByText('출고 가능 수량을 초과합니다')).toBeInTheDocument()
     expect(screen.getByText(/하향 제안수량: 5/)).toBeInTheDocument()
-
-    expect(screen.getByRole('button', { name: /제출$/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '이동 승인' })).toBeDisabled()
   })
 
-  it('enables approve once a feasible simulation matches the current quantity, and invalidates on quantity change', async () => {
+  it('enables 이동 승인 once the auto-simulation is feasible, and invalidates on quantity change', async () => {
     vi.mocked(api.simulateManualQuantity).mockResolvedValue(feasibleSimulation())
-    render(<DecisionPanel candidate={candidate()} runTuple={RUN_TUPLE} actorLabel="tester" onActorLabelChange={vi.fn()} onRequireDetailRefresh={vi.fn()} />)
+    renderPanel()
     await flush()
 
-    fireEvent.click(screen.getByRole('button', { name: '수량 시험' }))
-    await flush()
+    expect(screen.getByText('이 수량으로 이동 가능')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '이동 승인' })).toBeEnabled()
 
-    expect(screen.getByText('실행 가능한 수량입니다.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '승인됨 제출' })).toBeEnabled()
-
-    fireEvent.change(screen.getByLabelText('시험 수량'), { target: { value: '11' } })
-    expect(screen.queryByText('실행 가능한 수량입니다.')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '승인됨 제출' })).toBeDisabled()
+    fireEvent.change(screen.getByLabelText('추가 이동수량'), { target: { value: '11' } })
+    expect(screen.queryByText('이 수량으로 이동 가능')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '이동 승인' })).toBeDisabled()
     expect(
-      screen.getByText('현재 후보/버전/수량과 정확히 일치하는 실행 가능한 시험 결과가 있어야 승인할 수 있습니다.'),
+      screen.getByText('현재 수량과 일치하는 실행 가능한 확인 결과가 있어야 이동 승인할 수 있습니다.'),
     ).toBeInTheDocument()
   })
 
-  it('invalidates the simulation and history when the candidate changes', async () => {
+  it('invalidates the simulation and history, and auto-simulates again, when the candidate changes', async () => {
     vi.mocked(api.simulateManualQuantity).mockResolvedValue(feasibleSimulation())
-    const { rerender } = render(
-      <DecisionPanel candidate={candidate()} runTuple={RUN_TUPLE} actorLabel="tester" onActorLabelChange={vi.fn()} onRequireDetailRefresh={vi.fn()} />,
-    )
+    const { rerender } = renderPanel()
     await flush()
-    fireEvent.click(screen.getByRole('button', { name: '수량 시험' }))
-    await flush()
-    expect(screen.getByText('실행 가능한 수량입니다.')).toBeInTheDocument()
+    expect(screen.getByText('이 수량으로 이동 가능')).toBeInTheDocument()
 
     vi.mocked(api.getDecisionHistory).mockResolvedValue(emptyHistory(66))
+    vi.mocked(api.simulateManualQuantity).mockResolvedValue(feasibleSimulation({ recommendationId: 66, requestedQuantity: 4 }))
     rerender(
       <DecisionPanel
         candidate={candidate({ recommendationId: 66, recommendedQuantity: 4 })}
         runTuple={RUN_TUPLE}
+        currentStoreName="본점"
+        productName="시그니처 티셔츠"
         actorLabel="tester"
         onActorLabelChange={vi.fn()}
         onRequireDetailRefresh={vi.fn()}
+        onDecisionSaved={vi.fn()}
       />,
     )
     await flush()
 
-    expect(screen.queryByText('실행 가능한 수량입니다.')).not.toBeInTheDocument()
     expect(api.getDecisionHistory).toHaveBeenCalledWith(66, expect.anything())
-    expect(screen.getByLabelText('시험 수량')).toHaveValue(4)
+    expect(screen.getByLabelText('추가 이동수량')).toHaveValue(4)
+    expect(api.simulateManualQuantity).toHaveBeenCalledWith(expect.objectContaining({ recommendationId: 66, requestedQuantity: 4 }), expect.anything())
   })
 })
 
 describe('DecisionPanel decision submission', () => {
   async function simulateFeasible() {
     vi.mocked(api.simulateManualQuantity).mockResolvedValue(feasibleSimulation())
-    render(<DecisionPanel candidate={candidate()} runTuple={RUN_TUPLE} actorLabel="tester" onActorLabelChange={vi.fn()} onRequireDetailRefresh={vi.fn()} />)
+    const rendered = renderPanel()
     await flush()
-    fireEvent.click(screen.getByRole('button', { name: '수량 시험' }))
-    await flush()
+    return rendered
   }
 
-  it('submits an APPROVED decision with the matching quantity, mints an idempotency key, and refreshes history on success', async () => {
+  it('submits an APPROVED decision after confirm, mints an idempotency key, and refreshes history/list on success', async () => {
     vi.mocked(api.decide).mockResolvedValue({ decisionId: 1, recommendationId: 55, decisionStatus: 'APPROVED', decisionSequence: 1, transferDraftId: 5, created: true })
-    await simulateFeasible()
+    const { props } = await simulateFeasible()
 
-    fireEvent.click(screen.getByRole('button', { name: '승인됨 제출' }))
+    fireEvent.click(screen.getByRole('button', { name: '이동 승인' }))
+    fireEvent.click(screen.getByRole('button', { name: '10개 이동 승인' }))
     await flush()
 
     expect(api.decide).toHaveBeenCalledTimes(1)
@@ -208,10 +223,10 @@ describe('DecisionPanel decision submission', () => {
     expect(typeof key).toBe('string')
     expect(key.length).toBeGreaterThan(0)
 
-    expect(screen.getByText(/저장이 완료되었습니다/)).toBeInTheDocument()
-    expect(screen.getByText(/이동지시 초안 #5/)).toBeInTheDocument()
+    expect(screen.getByText('이동 승인 완료 · ERP 이동요청 초안 #5가 생성되었습니다.')).toBeInTheDocument()
     // history refetched after the successful decision (initial mount call + post-decision call)
     expect(api.getDecisionHistory).toHaveBeenCalledTimes(2)
+    expect(props.onDecisionSaved).toHaveBeenCalledTimes(1)
   })
 
   it('fails closed immediately on a successful APPROVED response, even if the follow-up history GET then fails, while the success message stays visible', async () => {
@@ -238,15 +253,16 @@ describe('DecisionPanel decision submission', () => {
     vi.mocked(api.getDecisionHistory).mockResolvedValueOnce(emptyHistory()).mockRejectedValueOnce(historyFailure)
     await simulateFeasible()
 
-    fireEvent.click(screen.getByRole('button', { name: '승인됨 제출' }))
+    fireEvent.click(screen.getByRole('button', { name: '이동 승인' }))
+    fireEvent.click(screen.getByRole('button', { name: '10개 이동 승인' }))
     await flush()
 
     expect(api.getDecisionHistory).toHaveBeenCalledTimes(2)
     // The success response's own `decisionStatus: 'APPROVED'` is authoritative -- the form retires
     // immediately regardless of what the (here, failed) follow-up history GET reports.
-    expect(screen.getByText('이미 최종 결정된 후보입니다. 아래 이력만 확인할 수 있습니다.')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '승인됨 제출' })).not.toBeInTheDocument()
-    expect(screen.getByText(/저장이 완료되었습니다/)).toBeInTheDocument()
+    expect(screen.getByText('이미 처리 완료된 이동안입니다.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '이동 승인' })).not.toBeInTheDocument()
+    expect(screen.getByText('이동 승인 완료 · ERP 이동요청 초안 #5가 생성되었습니다.')).toBeInTheDocument()
   })
 
   it('fails closed immediately on a successful REJECTED response, even if the follow-up history GET lags with a non-terminal status', async () => {
@@ -261,19 +277,18 @@ describe('DecisionPanel decision submission', () => {
     vi.mocked(api.getDecisionHistory)
       .mockResolvedValueOnce(emptyHistory())
       .mockResolvedValueOnce({ recommendationId: 55, currentStatus: 'PENDING', decisions: [] })
-    render(<DecisionPanel candidate={candidate()} runTuple={RUN_TUPLE} actorLabel="tester" onActorLabelChange={vi.fn()} onRequireDetailRefresh={vi.fn()} />)
+    renderPanel()
     await flush()
 
-    fireEvent.click(screen.getByRole('radio', { name: '거절됨' }))
-    fireEvent.change(screen.getByLabelText(/사유 코드/), { target: { value: 'DEMO_CODE' } })
-    fireEvent.change(screen.getByLabelText(/사유 설명/), { target: { value: '재고 재검토 필요' } })
-    fireEvent.click(screen.getByRole('button', { name: '거절됨 제출' }))
+    fireEvent.click(screen.getByRole('button', { name: '이동안 반려' }))
+    fillReason('TRANSFER_NOT_NEEDED', '재고 재검토 필요')
+    fireEvent.click(screen.getByRole('button', { name: '이동안 반려' }))
     await flush()
 
     expect(api.getDecisionHistory).toHaveBeenCalledTimes(2)
-    expect(screen.getByText('이미 최종 결정된 후보입니다. 아래 이력만 확인할 수 있습니다.')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '거절됨 제출' })).not.toBeInTheDocument()
-    expect(screen.getByText(/저장이 완료되었습니다/)).toBeInTheDocument()
+    expect(screen.getByText('이미 처리 완료된 이동안입니다.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '이동안 반려' })).not.toBeInTheDocument()
+    expect(screen.getByText('이동안을 반려했습니다.')).toBeInTheDocument()
   })
 
   it('a successful HELD response does not force the form terminal -- HELD stays actionable', async () => {
@@ -285,40 +300,37 @@ describe('DecisionPanel decision submission', () => {
       transferDraftId: null,
       created: true,
     })
-    render(<DecisionPanel candidate={candidate()} runTuple={RUN_TUPLE} actorLabel="tester" onActorLabelChange={vi.fn()} onRequireDetailRefresh={vi.fn()} />)
+    renderPanel()
     await flush()
 
-    fireEvent.click(screen.getByRole('radio', { name: '보류' }))
-    fireEvent.change(screen.getByLabelText(/사유 코드/), { target: { value: 'DEMO_CODE' } })
-    fireEvent.change(screen.getByLabelText(/사유 설명/), { target: { value: '추가 검토 필요' } })
-    fireEvent.click(screen.getByRole('button', { name: '보류 제출' }))
+    fireEvent.click(screen.getByRole('button', { name: '보류' }))
+    fillReason('MANAGER_REVIEW', '추가 검토 필요')
+    fireEvent.click(screen.getByRole('button', { name: '보류' }))
     await flush()
 
-    expect(screen.getByText(/저장이 완료되었습니다/)).toBeInTheDocument()
-    expect(screen.queryByText('이미 최종 결정된 후보입니다. 아래 이력만 확인할 수 있습니다.')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '보류 제출' })).toBeInTheDocument()
+    expect(screen.getByText('보류로 저장했습니다. 확인 후 다시 처리할 수 있습니다.')).toBeInTheDocument()
+    expect(screen.queryByText('이미 처리 완료된 이동안입니다.')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '보류' })).toBeInTheDocument()
   })
 
   it('requires a reason for a REJECTED decision and sends selectedQuantity=null', async () => {
     vi.mocked(api.decide).mockResolvedValue({ decisionId: 2, recommendationId: 55, decisionStatus: 'REJECTED', decisionSequence: 1, transferDraftId: null, created: true })
-    render(<DecisionPanel candidate={candidate()} runTuple={RUN_TUPLE} actorLabel="tester" onActorLabelChange={vi.fn()} onRequireDetailRefresh={vi.fn()} />)
+    renderPanel()
     await flush()
 
-    fireEvent.click(screen.getByRole('radio', { name: '거절됨' }))
-    expect(screen.getByRole('button', { name: '거절됨 제출' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: '이동안 반려' }))
+    // No reason filled yet -- the click above only set intent, it did not submit (readyFor gate).
+    expect(api.decide).not.toHaveBeenCalled()
 
-    fireEvent.change(screen.getByLabelText(/사유 코드/), { target: { value: 'DEMO_CODE' } })
-    fireEvent.change(screen.getByLabelText(/사유 설명/), { target: { value: '재고 재검토 필요' } })
-    expect(screen.getByRole('button', { name: '거절됨 제출' })).toBeEnabled()
-
-    fireEvent.click(screen.getByRole('button', { name: '거절됨 제출' }))
+    fillReason('TRANSFER_NOT_NEEDED', '재고 재검토 필요')
+    fireEvent.click(screen.getByRole('button', { name: '이동안 반려' }))
     await flush()
 
     const [body] = vi.mocked(api.decide).mock.calls[0]
     expect(body).toMatchObject({
       decisionStatus: 'REJECTED',
       selectedQuantity: null,
-      reasonCode: 'DEMO_CODE',
+      reasonCode: 'TRANSFER_NOT_NEEDED',
       reason: '재고 재검토 필요',
     })
   })
@@ -340,7 +352,8 @@ describe('DecisionPanel decision submission', () => {
       .mockResolvedValueOnce({ decisionId: 3, recommendationId: 55, decisionStatus: 'APPROVED', decisionSequence: 1, transferDraftId: null, created: true })
     await simulateFeasible()
 
-    fireEvent.click(screen.getByRole('button', { name: '승인됨 제출' }))
+    fireEvent.click(screen.getByRole('button', { name: '이동 승인' }))
+    fireEvent.click(screen.getByRole('button', { name: '10개 이동 승인' }))
     await flush()
     expect(screen.getByText('일시적 오류')).toBeInTheDocument()
     const firstKey = vi.mocked(api.decide).mock.calls[0][1]
@@ -351,7 +364,7 @@ describe('DecisionPanel decision submission', () => {
     expect(api.decide).toHaveBeenCalledTimes(2)
     const secondKey = vi.mocked(api.decide).mock.calls[1][1]
     expect(secondKey).toBe(firstKey)
-    expect(screen.getByText(/저장이 완료되었습니다/)).toBeInTheDocument()
+    expect(screen.getByText('이동 승인 완료')).toBeInTheDocument()
   })
 
   it('discards the pending key on a non-retryable rejection so the next submit mints a fresh one', async () => {
@@ -371,14 +384,16 @@ describe('DecisionPanel decision submission', () => {
       .mockResolvedValueOnce({ decisionId: 4, recommendationId: 55, decisionStatus: 'APPROVED', decisionSequence: 1, transferDraftId: null, created: true })
     await simulateFeasible()
 
-    fireEvent.click(screen.getByRole('button', { name: '승인됨 제출' }))
+    fireEvent.click(screen.getByRole('button', { name: '이동 승인' }))
+    fireEvent.click(screen.getByRole('button', { name: '10개 이동 승인' }))
     await flush()
     const firstKey = vi.mocked(api.decide).mock.calls[0][1]
     expect(screen.getByText('중복 요청')).toBeInTheDocument()
     // Not retryable, so no retry button is offered -- the next click starts a fresh submit.
     expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: '승인됨 제출' }))
+    fireEvent.click(screen.getByRole('button', { name: '이동 승인' }))
+    fireEvent.click(screen.getByRole('button', { name: '10개 이동 승인' }))
     await flush()
 
     const secondKey = vi.mocked(api.decide).mock.calls[1][1]
@@ -387,18 +402,16 @@ describe('DecisionPanel decision submission', () => {
 })
 
 describe('DecisionPanel candidate state gating', () => {
-  it('shows only a rejection message for a REJECTED candidate, with no simulation/decision form', () => {
-    render(
-      <DecisionPanel
-        candidate={candidate({ candidateStatus: 'REJECTED', rejectionReasons: [{ reasonCode: 'NO_TRANSFERABLE_STOCK', reasonOrder: 1 }] })}
-        runTuple={RUN_TUPLE}
-        actorLabel="tester"
-        onActorLabelChange={vi.fn()}
-        onRequireDetailRefresh={vi.fn()}
-      />,
-    )
-    expect(screen.getByText('이 후보는 탈락하여 시험·결정을 진행할 수 없습니다.')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '수량 시험' })).not.toBeInTheDocument()
+  it('renders nothing for a REJECTED candidate -- ExceptionDetail shows the rejection guidance instead', () => {
+    const { container } = renderPanel({
+      candidate: candidate({ candidateStatus: 'REJECTED', rejectionReasons: [{ reasonCode: 'NO_TRANSFERABLE_STOCK', reasonOrder: 1 }] }),
+    })
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it('renders nothing for a COMPARISON_ONLY candidate', () => {
+    const { container } = renderPanel({ candidate: candidate({ recommendationMode: 'COMPARISON_ONLY' }) })
+    expect(container).toBeEmptyDOMElement()
   })
 
   it('shows a read-only history view with approval basis for a terminal (APPROVED) candidate', async () => {
@@ -453,32 +466,22 @@ describe('DecisionPanel candidate state gating', () => {
       ],
     })
 
-    render(
-      <DecisionPanel
-        candidate={candidate({ latestDecision: { decisionSequence: 1, decisionStatus: 'APPROVED', selectedQuantity: 10, reasonCode: 'DEMO', reason: '승인', actorLabel: 'tester', decidedAt: '2026-09-30T00:10:00Z' } })}
-        runTuple={RUN_TUPLE}
-        actorLabel="tester"
-        onActorLabelChange={vi.fn()}
-        onRequireDetailRefresh={vi.fn()}
-      />,
-    )
+    renderPanel({
+      candidate: candidate({ latestDecision: { decisionSequence: 1, decisionStatus: 'APPROVED', selectedQuantity: 10, reasonCode: 'DEMO', reason: '승인', actorLabel: 'tester', decidedAt: '2026-09-30T00:10:00Z' } }),
+    })
     await flush()
 
-    expect(screen.getByText('이미 최종 결정된 후보입니다. 아래 이력만 확인할 수 있습니다.')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '수량 시험' })).not.toBeInTheDocument()
+    expect(screen.getByText('이미 처리 완료된 이동안입니다.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '이동 승인' })).not.toBeInTheDocument()
 
-    // The decision line itself traces to a specific recommendation/decision contract version.
-    expect(screen.getByText(/추천 버전 1/)).toBeInTheDocument()
-    expect(screen.getByText(/결정 계약 버전 D1/)).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: '승인 근거 보기' }))
+    fireEvent.click(screen.getByRole('button', { name: '감사정보 보기' }))
     expect(screen.getByText('승인 근거 ID')).toBeInTheDocument()
     expect(screen.getByText('승인 근거 ID').nextElementSibling).toHaveTextContent('1')
     expect(screen.getByText('추천 기준 수량')).toBeInTheDocument()
     expect(screen.getByText('버전 tuple (run/입력/규칙/후보)')).toBeInTheDocument()
-    expect(screen.getByText('이동지시 초안 ID / 상태')).toBeInTheDocument()
+    expect(screen.getByText('ERP 이동요청 초안 ID / 상태')).toBeInTheDocument()
     expect(screen.getByText(/초안 생성됨/)).toBeInTheDocument()
-    expect(screen.getByText(/ERP 전송 완료를 의미하지 않습니다/)).toBeInTheDocument()
+    expect(screen.getByText(/ERP 접수·출고 완료를 의미하지 않습니다/)).toBeInTheDocument()
   })
 
   it('disables the form once canonical history reports a terminal status, even though the candidate prop itself is not terminal', async () => {
@@ -506,41 +509,23 @@ describe('DecisionPanel candidate state gating', () => {
         },
       ],
     })
-    render(
-      <DecisionPanel
-        candidate={candidate({ latestDecision: null })}
-        runTuple={RUN_TUPLE}
-        actorLabel="tester"
-        onActorLabelChange={vi.fn()}
-        onRequireDetailRefresh={vi.fn()}
-      />,
-    )
+    renderPanel({ candidate: candidate({ latestDecision: null }) })
     await flush()
 
-    expect(screen.getByText('이미 최종 결정된 후보입니다. 아래 이력만 확인할 수 있습니다.')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '수량 시험' })).not.toBeInTheDocument()
+    expect(screen.getByText('이미 처리 완료된 이동안입니다.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '이동 승인' })).not.toBeInTheDocument()
   })
 })
 
 describe('DecisionPanel stale/terminal decision recovery', () => {
   async function simulateFeasible(onRequireDetailRefresh = vi.fn()) {
     vi.mocked(api.simulateManualQuantity).mockResolvedValue(feasibleSimulation())
-    render(
-      <DecisionPanel
-        candidate={candidate()}
-        runTuple={RUN_TUPLE}
-        actorLabel="tester"
-        onActorLabelChange={vi.fn()}
-        onRequireDetailRefresh={onRequireDetailRefresh}
-      />,
-    )
-    await flush()
-    fireEvent.click(screen.getByRole('button', { name: '수량 시험' }))
+    renderPanel({ onRequireDetailRefresh })
     await flush()
     return onRequireDetailRefresh
   }
 
-  it('STALE_RECOMMENDATION discards the current simulation and offers a 상세 새로고침 action', async () => {
+  it('STALE_RECOMMENDATION discards the current simulation and offers a 최신 내용 불러오기 action', async () => {
     const staleError = new ApiError({
       type: 'about:blank',
       title: '오래된 추천',
@@ -554,21 +539,22 @@ describe('DecisionPanel stale/terminal decision recovery', () => {
     })
     vi.mocked(api.decide).mockRejectedValueOnce(staleError)
     const onRequireDetailRefresh = await simulateFeasible()
-    expect(screen.getByText('실행 가능한 수량입니다.')).toBeInTheDocument()
+    expect(screen.getByText('이 수량으로 이동 가능')).toBeInTheDocument()
     const historyCallsBefore = vi.mocked(api.getDecisionHistory).mock.calls.length
 
-    fireEvent.click(screen.getByRole('button', { name: '승인됨 제출' }))
+    fireEvent.click(screen.getByRole('button', { name: '이동 승인' }))
+    fireEvent.click(screen.getByRole('button', { name: '10개 이동 승인' }))
     await flush()
 
     expect(screen.getByText('오래된 추천')).toBeInTheDocument()
-    expect(screen.queryByText('실행 가능한 수량입니다.')).not.toBeInTheDocument()
+    expect(screen.queryByText('이 수량으로 이동 가능')).not.toBeInTheDocument()
     expect(vi.mocked(api.getDecisionHistory).mock.calls.length).toBeGreaterThan(historyCallsBefore)
 
-    fireEvent.click(screen.getByRole('button', { name: '상세 새로고침' }))
+    fireEvent.click(screen.getByRole('button', { name: '최신 내용 불러오기' }))
     expect(onRequireDetailRefresh).toHaveBeenCalledTimes(1)
   })
 
-  it('DECISION_ALREADY_TERMINAL discards the pending request and offers a 상세 새로고침 action', async () => {
+  it('DECISION_ALREADY_TERMINAL discards the pending request and offers a 최신 내용 불러오기 action', async () => {
     const terminalError = new ApiError({
       type: 'about:blank',
       title: '이미 종결된 결정',
@@ -586,16 +572,16 @@ describe('DecisionPanel stale/terminal decision recovery', () => {
     vi.mocked(api.decide).mockRejectedValueOnce(terminalError)
     const onRequireDetailRefresh = await simulateFeasible()
 
-    fireEvent.click(screen.getByRole('button', { name: '승인됨 제출' }))
+    fireEvent.click(screen.getByRole('button', { name: '이동 승인' }))
+    fireEvent.click(screen.getByRole('button', { name: '10개 이동 승인' }))
     await flush()
 
     expect(screen.getByText('이미 종결된 결정')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: '상세 새로고침' }))
+    fireEvent.click(screen.getByRole('button', { name: '최신 내용 불러오기' }))
     expect(onRequireDetailRefresh).toHaveBeenCalledTimes(1)
 
-    // Non-retryable, so the pending key/body is discarded -- clicking submit again (with the
-    // simulation gone, this reflects the double-click-cannot-resubmit-blindly guarantee) does not
-    // silently reuse the stale key. No retry button is offered for this non-retryable error.
+    // Non-retryable, so the pending key/body is discarded -- no retry button is offered for this
+    // non-retryable error.
     expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument()
   })
 
@@ -623,20 +609,20 @@ describe('DecisionPanel stale/terminal decision recovery', () => {
       timestamp: '2026-08-29T00:00:00Z',
     })
     vi.mocked(api.decide).mockRejectedValueOnce(terminalError)
-    // The FIRST call is the initial mount fetch (inside `simulateFeasible`'s `render`) -- it must
-    // succeed so the intended failure lands on the SECOND call, the actual post-error refetch that
-    // DECISION_ALREADY_TERMINAL triggers. The form must still retire on the authoritative error
-    // code itself, not wait on (or stay open because of) that broken follow-up read.
+    // The FIRST call is the initial mount fetch -- it must succeed so the intended failure lands
+    // on the SECOND call, the actual post-error refetch that DECISION_ALREADY_TERMINAL triggers.
+    // The form must still retire on the authoritative error code itself, not wait on (or stay open
+    // because of) that broken follow-up read.
     vi.mocked(api.getDecisionHistory).mockResolvedValueOnce(emptyHistory()).mockRejectedValueOnce(historyFailure)
     await simulateFeasible()
 
-    fireEvent.click(screen.getByRole('button', { name: '승인됨 제출' }))
+    fireEvent.click(screen.getByRole('button', { name: '이동 승인' }))
+    fireEvent.click(screen.getByRole('button', { name: '10개 이동 승인' }))
     await flush()
 
     expect(api.getDecisionHistory).toHaveBeenCalledTimes(2)
-    expect(screen.getByText('이미 최종 결정된 후보입니다. 아래 이력만 확인할 수 있습니다.')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '수량 시험' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '승인됨 제출' })).not.toBeInTheDocument()
+    expect(screen.getByText('이미 처리 완료된 이동안입니다.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '이동 승인' })).not.toBeInTheDocument()
     // The history load's own error/recovery UI still surfaces alongside the retired form.
     expect(screen.getByText('네트워크 오류')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument()
@@ -662,17 +648,18 @@ describe('DecisionPanel stale/terminal decision recovery', () => {
       .mockResolvedValueOnce({ recommendationId: 55, currentStatus: 'PENDING', decisions: [] })
     await simulateFeasible()
 
-    fireEvent.click(screen.getByRole('button', { name: '승인됨 제출' }))
+    fireEvent.click(screen.getByRole('button', { name: '이동 승인' }))
+    fireEvent.click(screen.getByRole('button', { name: '10개 이동 승인' }))
     await flush()
 
     expect(api.getDecisionHistory).toHaveBeenCalledTimes(2)
-    expect(screen.getByText('이미 최종 결정된 후보입니다. 아래 이력만 확인할 수 있습니다.')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '승인됨 제출' })).not.toBeInTheDocument()
+    expect(screen.getByText('이미 처리 완료된 이동안입니다.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '이동 승인' })).not.toBeInTheDocument()
   })
 })
 
 describe('DecisionPanel feasible projection risk display', () => {
-  it('renders receiver/donor projected risk with Korean labels, not raw enum codes', async () => {
+  it('renders receiver/donor projected risk with Korean labels, not raw enum codes, inside 반영 내역 보기', async () => {
     vi.mocked(api.simulateManualQuantity).mockResolvedValue(
       feasibleSimulation({
         projection: {
@@ -682,24 +669,14 @@ describe('DecisionPanel feasible projection risk display', () => {
         },
       }),
     )
-    render(
-      <DecisionPanel
-        candidate={candidate()}
-        runTuple={RUN_TUPLE}
-        actorLabel="tester"
-        onActorLabelChange={vi.fn()}
-        onRequireDetailRefresh={vi.fn()}
-      />,
-    )
-    await flush()
-    fireEvent.click(screen.getByRole('button', { name: '수량 시험' }))
+    renderPanel()
     await flush()
 
-    expect(screen.getByText('수령 매장 위험')).toBeInTheDocument()
-    expect(screen.getByText('공급 매장 위험')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('반영 내역 보기'))
+
+    expect(screen.getByText(/입고점 위험: 품절 위험/)).toBeInTheDocument()
+    expect(screen.getByText(/출고점 위험: 과다 재고/)).toBeInTheDocument()
     expect(screen.queryByText('STOCKOUT_RISK')).not.toBeInTheDocument()
     expect(screen.queryByText('OVERSTOCK')).not.toBeInTheDocument()
-    expect(screen.getByText('수령 매장 위험').nextElementSibling).toHaveTextContent('품절 위험')
-    expect(screen.getByText('공급 매장 위험').nextElementSibling).toHaveTextContent('과잉재고')
   })
 })

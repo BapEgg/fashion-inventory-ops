@@ -5,6 +5,7 @@ import com.bapegg.stockpilot.demand.DemandSignalType;
 import com.bapegg.stockpilot.demand.InventoryExceptionType;
 import com.bapegg.stockpilot.demand.InventorySeverity;
 import com.bapegg.stockpilot.demand.MetricQualityFlag;
+import com.bapegg.stockpilot.demand.TransferCandidateRejectionReason;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -47,6 +48,11 @@ public record Mvp2InventoryExceptionListItem(
         int executableCandidateCount,
         int comparisonOnlyCandidateCount,
         int rejectedCandidateCount,
-        boolean hasExecutableCandidate
+        boolean hasExecutableCandidate,
+        AllocatorWorkStatus workStatus,
+        List<TransferCandidateRejectionReason> blockingReasons
 ) {
+    public Mvp2InventoryExceptionListItem {
+        blockingReasons = List.copyOf(blockingReasons);
+    }
 }

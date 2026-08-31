@@ -48,56 +48,20 @@ public interface SpInventoryMetricRepository extends JpaRepository<SpInventoryMe
      * -- the fixed order below is the only order this contract allows -- and only its offset/page
      * size are used.
      */
-    @Query("""
-            SELECT m.inventoryMetricId FROM SpInventoryMetric m
-                JOIN m.inventorySnapshot snap
-            WHERE m.analysisRun.analysisRunId = :runId
-                AND m.inventoryExceptionType <> com.bapegg.stockpilot.demand.InventoryExceptionType.NORMAL
-                AND (:exceptionTypeFilterActive = false OR m.inventoryExceptionType IN :exceptionTypes)
-                AND (:severityFilterActive = false OR m.severity IN :severities)
-                AND (:signalFilterActive = false OR m.primaryDemandSignalType IN :signals)
-                AND (:confidenceFilterActive = false OR m.demandConfidence IN :confidences)
-                AND (:qualityFlagFilterActive = false OR EXISTS (
-                        SELECT 1 FROM SpMetricQualityFlag f
-                        WHERE f.inventoryMetric = m AND f.flagCode IN :qualityFlags))
-                AND (:storeId IS NULL OR snap.storeId = :storeId)
-                AND (:skuId IS NULL OR snap.skuId = :skuId)
-                AND (:hasExecutableCandidate IS NULL OR
-                    (:hasExecutableCandidate = true AND EXISTS (
-                        SELECT 1 FROM com.bapegg.stockpilot.rebalance.SpRebalanceRecommendation r
-                        WHERE (r.receiverMetric = m OR r.donorMetric = m)
-                            AND r.candidateStatus = com.bapegg.stockpilot.rebalance.CandidateStatus.ELIGIBLE
-                            AND r.recommendationMode = com.bapegg.stockpilot.rebalance.RecommendationMode.RECOMMENDED))
-                    OR
-                    (:hasExecutableCandidate = false AND NOT EXISTS (
-                        SELECT 1 FROM com.bapegg.stockpilot.rebalance.SpRebalanceRecommendation r
-                        WHERE (r.receiverMetric = m OR r.donorMetric = m)
-                            AND r.candidateStatus = com.bapegg.stockpilot.rebalance.CandidateStatus.ELIGIBLE
-                            AND r.recommendationMode = com.bapegg.stockpilot.rebalance.RecommendationMode.RECOMMENDED)))
-            ORDER BY
-                CASE WHEN m.severity = com.bapegg.stockpilot.demand.InventorySeverity.CRITICAL THEN 0
-                     WHEN m.severity = com.bapegg.stockpilot.demand.InventorySeverity.HIGH THEN 1
-                     WHEN m.severity = com.bapegg.stockpilot.demand.InventorySeverity.REVIEW THEN 2
-                     ELSE 3 END,
-                CASE WHEN EXISTS (
-                        SELECT 1 FROM com.bapegg.stockpilot.rebalance.SpRebalanceRecommendation r2
-                        WHERE (r2.receiverMetric = m OR r2.donorMetric = m)
-                            AND r2.candidateStatus = com.bapegg.stockpilot.rebalance.CandidateStatus.ELIGIBLE
-                            AND r2.recommendationMode = com.bapegg.stockpilot.rebalance.RecommendationMode.RECOMMENDED)
-                     THEN 0 ELSE 1 END,
-                CASE WHEN m.demandConfidence = com.bapegg.stockpilot.demand.DemandConfidence.HIGH THEN 0
-                     WHEN m.demandConfidence = com.bapegg.stockpilot.demand.DemandConfidence.MEDIUM THEN 1
-                     WHEN m.demandConfidence = com.bapegg.stockpilot.demand.DemandConfidence.LOW THEN 2
-                     WHEN m.demandConfidence = com.bapegg.stockpilot.demand.DemandConfidence.NONE THEN 3
-                     ELSE 4 END,
-                m.expectedShortageQuantity DESC NULLS LAST,
-                (m.expectedShortageQuantity * (
-                    SELECT ds.averageSellingPrice FROM com.bapegg.stockpilot.inventory.SpDailySale ds
-                    WHERE ds.salesDate = :priceDate AND ds.storeId = snap.storeId AND ds.skuId = snap.skuId
-                        AND ds.inputSnapshotVersion = :inputVersion)) DESC NULLS LAST,
-                snap.storeId ASC, snap.skuId ASC, m.inventoryMetricId ASC
-            """)
-    List<Long> findPagedIds(
+    /**
+     * The MVP-2 run-bound list read API's filter+workStatus+sort+page query, per redesign spec
+     * sections 4.2-4.5. Only the ordered id page comes back from this statement; every other list
+     * field is bulk-fetched separately by that id set. There is one {@code findPagedIds*} method
+     * per {@link ExceptionSortKey}/{@link ExceptionSortDirection} combination -- JPQL
+     * {@code @Query} text is a compile-time constant, so it cannot branch on a runtime sort
+     * parameter, and {@link InventoryExceptionQuerySql} is the single place each variant's shared
+     * filter/order fragments are assembled, so the ten variants below can never drift from each
+     * other or from {@link #countPaged}. {@code pageable}'s {@code Sort} must be
+     * {@link org.springframework.data.domain.Sort#unsorted()} -- only its offset/page size are
+     * used, the fixed order embedded in the chosen method is the only order this contract allows.
+     */
+    @Query(InventoryExceptionQuerySql.FIND_PAGED_IDS_WORK_PRIORITY_ASC)
+    List<Long> findPagedIdsByWorkPriorityAsc(
             @Param("runId") Long runId,
             @Param("exceptionTypeFilterActive") boolean exceptionTypeFilterActive,
             @Param("exceptionTypes") Collection<InventoryExceptionType> exceptionTypes,
@@ -112,38 +76,212 @@ public interface SpInventoryMetricRepository extends JpaRepository<SpInventoryMe
             @Param("storeId") String storeId,
             @Param("skuId") String skuId,
             @Param("hasExecutableCandidate") Boolean hasExecutableCandidate,
+            @Param("workStatusFilterActive") boolean workStatusFilterActive,
+            @Param("workStatusNames") Collection<String> workStatusNames,
             @Param("priceDate") LocalDate priceDate,
             @Param("inputVersion") String inputVersion,
             Pageable pageable);
 
-    /** The same filter predicate as {@link #findPagedIds}, without order/page, for {@code totalElements}. */
-    @Query("""
-            SELECT COUNT(m) FROM SpInventoryMetric m
-                JOIN m.inventorySnapshot snap
-            WHERE m.analysisRun.analysisRunId = :runId
-                AND m.inventoryExceptionType <> com.bapegg.stockpilot.demand.InventoryExceptionType.NORMAL
-                AND (:exceptionTypeFilterActive = false OR m.inventoryExceptionType IN :exceptionTypes)
-                AND (:severityFilterActive = false OR m.severity IN :severities)
-                AND (:signalFilterActive = false OR m.primaryDemandSignalType IN :signals)
-                AND (:confidenceFilterActive = false OR m.demandConfidence IN :confidences)
-                AND (:qualityFlagFilterActive = false OR EXISTS (
-                        SELECT 1 FROM SpMetricQualityFlag f
-                        WHERE f.inventoryMetric = m AND f.flagCode IN :qualityFlags))
-                AND (:storeId IS NULL OR snap.storeId = :storeId)
-                AND (:skuId IS NULL OR snap.skuId = :skuId)
-                AND (:hasExecutableCandidate IS NULL OR
-                    (:hasExecutableCandidate = true AND EXISTS (
-                        SELECT 1 FROM com.bapegg.stockpilot.rebalance.SpRebalanceRecommendation r
-                        WHERE (r.receiverMetric = m OR r.donorMetric = m)
-                            AND r.candidateStatus = com.bapegg.stockpilot.rebalance.CandidateStatus.ELIGIBLE
-                            AND r.recommendationMode = com.bapegg.stockpilot.rebalance.RecommendationMode.RECOMMENDED))
-                    OR
-                    (:hasExecutableCandidate = false AND NOT EXISTS (
-                        SELECT 1 FROM com.bapegg.stockpilot.rebalance.SpRebalanceRecommendation r
-                        WHERE (r.receiverMetric = m OR r.donorMetric = m)
-                            AND r.candidateStatus = com.bapegg.stockpilot.rebalance.CandidateStatus.ELIGIBLE
-                            AND r.recommendationMode = com.bapegg.stockpilot.rebalance.RecommendationMode.RECOMMENDED)))
-            """)
+    @Query(InventoryExceptionQuerySql.FIND_PAGED_IDS_WORK_PRIORITY_DESC)
+    List<Long> findPagedIdsByWorkPriorityDesc(
+            @Param("runId") Long runId,
+            @Param("exceptionTypeFilterActive") boolean exceptionTypeFilterActive,
+            @Param("exceptionTypes") Collection<InventoryExceptionType> exceptionTypes,
+            @Param("severityFilterActive") boolean severityFilterActive,
+            @Param("severities") Collection<InventorySeverity> severities,
+            @Param("signalFilterActive") boolean signalFilterActive,
+            @Param("signals") Collection<DemandSignalType> signals,
+            @Param("confidenceFilterActive") boolean confidenceFilterActive,
+            @Param("confidences") Collection<DemandConfidence> confidences,
+            @Param("qualityFlagFilterActive") boolean qualityFlagFilterActive,
+            @Param("qualityFlags") Collection<MetricQualityFlag> qualityFlags,
+            @Param("storeId") String storeId,
+            @Param("skuId") String skuId,
+            @Param("hasExecutableCandidate") Boolean hasExecutableCandidate,
+            @Param("workStatusFilterActive") boolean workStatusFilterActive,
+            @Param("workStatusNames") Collection<String> workStatusNames,
+            @Param("priceDate") LocalDate priceDate,
+            @Param("inputVersion") String inputVersion,
+            Pageable pageable);
+
+    @Query(InventoryExceptionQuerySql.FIND_PAGED_IDS_SALES_EXPOSURE_ASC)
+    List<Long> findPagedIdsBySalesExposureAsc(
+            @Param("runId") Long runId,
+            @Param("exceptionTypeFilterActive") boolean exceptionTypeFilterActive,
+            @Param("exceptionTypes") Collection<InventoryExceptionType> exceptionTypes,
+            @Param("severityFilterActive") boolean severityFilterActive,
+            @Param("severities") Collection<InventorySeverity> severities,
+            @Param("signalFilterActive") boolean signalFilterActive,
+            @Param("signals") Collection<DemandSignalType> signals,
+            @Param("confidenceFilterActive") boolean confidenceFilterActive,
+            @Param("confidences") Collection<DemandConfidence> confidences,
+            @Param("qualityFlagFilterActive") boolean qualityFlagFilterActive,
+            @Param("qualityFlags") Collection<MetricQualityFlag> qualityFlags,
+            @Param("storeId") String storeId,
+            @Param("skuId") String skuId,
+            @Param("hasExecutableCandidate") Boolean hasExecutableCandidate,
+            @Param("workStatusFilterActive") boolean workStatusFilterActive,
+            @Param("workStatusNames") Collection<String> workStatusNames,
+            @Param("priceDate") LocalDate priceDate,
+            @Param("inputVersion") String inputVersion,
+            Pageable pageable);
+
+    @Query(InventoryExceptionQuerySql.FIND_PAGED_IDS_SALES_EXPOSURE_DESC)
+    List<Long> findPagedIdsBySalesExposureDesc(
+            @Param("runId") Long runId,
+            @Param("exceptionTypeFilterActive") boolean exceptionTypeFilterActive,
+            @Param("exceptionTypes") Collection<InventoryExceptionType> exceptionTypes,
+            @Param("severityFilterActive") boolean severityFilterActive,
+            @Param("severities") Collection<InventorySeverity> severities,
+            @Param("signalFilterActive") boolean signalFilterActive,
+            @Param("signals") Collection<DemandSignalType> signals,
+            @Param("confidenceFilterActive") boolean confidenceFilterActive,
+            @Param("confidences") Collection<DemandConfidence> confidences,
+            @Param("qualityFlagFilterActive") boolean qualityFlagFilterActive,
+            @Param("qualityFlags") Collection<MetricQualityFlag> qualityFlags,
+            @Param("storeId") String storeId,
+            @Param("skuId") String skuId,
+            @Param("hasExecutableCandidate") Boolean hasExecutableCandidate,
+            @Param("workStatusFilterActive") boolean workStatusFilterActive,
+            @Param("workStatusNames") Collection<String> workStatusNames,
+            @Param("priceDate") LocalDate priceDate,
+            @Param("inputVersion") String inputVersion,
+            Pageable pageable);
+
+    @Query(InventoryExceptionQuerySql.FIND_PAGED_IDS_SHORTAGE_QUANTITY_ASC)
+    List<Long> findPagedIdsByShortageQuantityAsc(
+            @Param("runId") Long runId,
+            @Param("exceptionTypeFilterActive") boolean exceptionTypeFilterActive,
+            @Param("exceptionTypes") Collection<InventoryExceptionType> exceptionTypes,
+            @Param("severityFilterActive") boolean severityFilterActive,
+            @Param("severities") Collection<InventorySeverity> severities,
+            @Param("signalFilterActive") boolean signalFilterActive,
+            @Param("signals") Collection<DemandSignalType> signals,
+            @Param("confidenceFilterActive") boolean confidenceFilterActive,
+            @Param("confidences") Collection<DemandConfidence> confidences,
+            @Param("qualityFlagFilterActive") boolean qualityFlagFilterActive,
+            @Param("qualityFlags") Collection<MetricQualityFlag> qualityFlags,
+            @Param("storeId") String storeId,
+            @Param("skuId") String skuId,
+            @Param("hasExecutableCandidate") Boolean hasExecutableCandidate,
+            @Param("workStatusFilterActive") boolean workStatusFilterActive,
+            @Param("workStatusNames") Collection<String> workStatusNames,
+            @Param("priceDate") LocalDate priceDate,
+            @Param("inputVersion") String inputVersion,
+            Pageable pageable);
+
+    @Query(InventoryExceptionQuerySql.FIND_PAGED_IDS_SHORTAGE_QUANTITY_DESC)
+    List<Long> findPagedIdsByShortageQuantityDesc(
+            @Param("runId") Long runId,
+            @Param("exceptionTypeFilterActive") boolean exceptionTypeFilterActive,
+            @Param("exceptionTypes") Collection<InventoryExceptionType> exceptionTypes,
+            @Param("severityFilterActive") boolean severityFilterActive,
+            @Param("severities") Collection<InventorySeverity> severities,
+            @Param("signalFilterActive") boolean signalFilterActive,
+            @Param("signals") Collection<DemandSignalType> signals,
+            @Param("confidenceFilterActive") boolean confidenceFilterActive,
+            @Param("confidences") Collection<DemandConfidence> confidences,
+            @Param("qualityFlagFilterActive") boolean qualityFlagFilterActive,
+            @Param("qualityFlags") Collection<MetricQualityFlag> qualityFlags,
+            @Param("storeId") String storeId,
+            @Param("skuId") String skuId,
+            @Param("hasExecutableCandidate") Boolean hasExecutableCandidate,
+            @Param("workStatusFilterActive") boolean workStatusFilterActive,
+            @Param("workStatusNames") Collection<String> workStatusNames,
+            @Param("priceDate") LocalDate priceDate,
+            @Param("inputVersion") String inputVersion,
+            Pageable pageable);
+
+    @Query(InventoryExceptionQuerySql.FIND_PAGED_IDS_COVERAGE_DAYS_ASC)
+    List<Long> findPagedIdsByCoverageDaysAsc(
+            @Param("runId") Long runId,
+            @Param("exceptionTypeFilterActive") boolean exceptionTypeFilterActive,
+            @Param("exceptionTypes") Collection<InventoryExceptionType> exceptionTypes,
+            @Param("severityFilterActive") boolean severityFilterActive,
+            @Param("severities") Collection<InventorySeverity> severities,
+            @Param("signalFilterActive") boolean signalFilterActive,
+            @Param("signals") Collection<DemandSignalType> signals,
+            @Param("confidenceFilterActive") boolean confidenceFilterActive,
+            @Param("confidences") Collection<DemandConfidence> confidences,
+            @Param("qualityFlagFilterActive") boolean qualityFlagFilterActive,
+            @Param("qualityFlags") Collection<MetricQualityFlag> qualityFlags,
+            @Param("storeId") String storeId,
+            @Param("skuId") String skuId,
+            @Param("hasExecutableCandidate") Boolean hasExecutableCandidate,
+            @Param("workStatusFilterActive") boolean workStatusFilterActive,
+            @Param("workStatusNames") Collection<String> workStatusNames,
+            @Param("priceDate") LocalDate priceDate,
+            @Param("inputVersion") String inputVersion,
+            Pageable pageable);
+
+    @Query(InventoryExceptionQuerySql.FIND_PAGED_IDS_COVERAGE_DAYS_DESC)
+    List<Long> findPagedIdsByCoverageDaysDesc(
+            @Param("runId") Long runId,
+            @Param("exceptionTypeFilterActive") boolean exceptionTypeFilterActive,
+            @Param("exceptionTypes") Collection<InventoryExceptionType> exceptionTypes,
+            @Param("severityFilterActive") boolean severityFilterActive,
+            @Param("severities") Collection<InventorySeverity> severities,
+            @Param("signalFilterActive") boolean signalFilterActive,
+            @Param("signals") Collection<DemandSignalType> signals,
+            @Param("confidenceFilterActive") boolean confidenceFilterActive,
+            @Param("confidences") Collection<DemandConfidence> confidences,
+            @Param("qualityFlagFilterActive") boolean qualityFlagFilterActive,
+            @Param("qualityFlags") Collection<MetricQualityFlag> qualityFlags,
+            @Param("storeId") String storeId,
+            @Param("skuId") String skuId,
+            @Param("hasExecutableCandidate") Boolean hasExecutableCandidate,
+            @Param("workStatusFilterActive") boolean workStatusFilterActive,
+            @Param("workStatusNames") Collection<String> workStatusNames,
+            @Param("priceDate") LocalDate priceDate,
+            @Param("inputVersion") String inputVersion,
+            Pageable pageable);
+
+    @Query(InventoryExceptionQuerySql.FIND_PAGED_IDS_STORE_PRODUCT_ASC)
+    List<Long> findPagedIdsByStoreProductAsc(
+            @Param("runId") Long runId,
+            @Param("exceptionTypeFilterActive") boolean exceptionTypeFilterActive,
+            @Param("exceptionTypes") Collection<InventoryExceptionType> exceptionTypes,
+            @Param("severityFilterActive") boolean severityFilterActive,
+            @Param("severities") Collection<InventorySeverity> severities,
+            @Param("signalFilterActive") boolean signalFilterActive,
+            @Param("signals") Collection<DemandSignalType> signals,
+            @Param("confidenceFilterActive") boolean confidenceFilterActive,
+            @Param("confidences") Collection<DemandConfidence> confidences,
+            @Param("qualityFlagFilterActive") boolean qualityFlagFilterActive,
+            @Param("qualityFlags") Collection<MetricQualityFlag> qualityFlags,
+            @Param("storeId") String storeId,
+            @Param("skuId") String skuId,
+            @Param("hasExecutableCandidate") Boolean hasExecutableCandidate,
+            @Param("workStatusFilterActive") boolean workStatusFilterActive,
+            @Param("workStatusNames") Collection<String> workStatusNames,
+            @Param("priceDate") LocalDate priceDate,
+            @Param("inputVersion") String inputVersion,
+            Pageable pageable);
+
+    @Query(InventoryExceptionQuerySql.FIND_PAGED_IDS_STORE_PRODUCT_DESC)
+    List<Long> findPagedIdsByStoreProductDesc(
+            @Param("runId") Long runId,
+            @Param("exceptionTypeFilterActive") boolean exceptionTypeFilterActive,
+            @Param("exceptionTypes") Collection<InventoryExceptionType> exceptionTypes,
+            @Param("severityFilterActive") boolean severityFilterActive,
+            @Param("severities") Collection<InventorySeverity> severities,
+            @Param("signalFilterActive") boolean signalFilterActive,
+            @Param("signals") Collection<DemandSignalType> signals,
+            @Param("confidenceFilterActive") boolean confidenceFilterActive,
+            @Param("confidences") Collection<DemandConfidence> confidences,
+            @Param("qualityFlagFilterActive") boolean qualityFlagFilterActive,
+            @Param("qualityFlags") Collection<MetricQualityFlag> qualityFlags,
+            @Param("storeId") String storeId,
+            @Param("skuId") String skuId,
+            @Param("hasExecutableCandidate") Boolean hasExecutableCandidate,
+            @Param("workStatusFilterActive") boolean workStatusFilterActive,
+            @Param("workStatusNames") Collection<String> workStatusNames,
+            @Param("priceDate") LocalDate priceDate,
+            @Param("inputVersion") String inputVersion,
+            Pageable pageable);
+
+    /** The same filter predicate every {@code findPagedIds*} variant shares, without order/page, for {@code totalElements}. */
+    @Query(InventoryExceptionQuerySql.COUNT_PAGED)
     long countPaged(
             @Param("runId") Long runId,
             @Param("exceptionTypeFilterActive") boolean exceptionTypeFilterActive,
@@ -158,7 +296,19 @@ public interface SpInventoryMetricRepository extends JpaRepository<SpInventoryMe
             @Param("qualityFlags") Collection<MetricQualityFlag> qualityFlags,
             @Param("storeId") String storeId,
             @Param("skuId") String skuId,
-            @Param("hasExecutableCandidate") Boolean hasExecutableCandidate);
+            @Param("hasExecutableCandidate") Boolean hasExecutableCandidate,
+            @Param("workStatusFilterActive") boolean workStatusFilterActive,
+            @Param("workStatusNames") Collection<String> workStatusNames);
+
+    /**
+     * The run-wide {@code AllocatorWorkSummary} aggregate, per section 4.4 -- unaffected by the
+     * caller's current page or filters, identical on every page of the same run.
+     * {@code Object[]} order: {@code totalReviewTargets, criticalCount, decisionRequiredCount,
+     * onHoldCount, reviewInputCount, noTransferOptionCount, completedCount,
+     * estimatedSalesExposureTotal, estimatedSalesExposureUnknownCount}.
+     */
+    @Query(InventoryExceptionQuerySql.SUMMARY)
+    List<Object[]> summarize(@Param("runId") Long runId, @Param("priceDate") LocalDate priceDate, @Param("inputVersion") String inputVersion);
 
     /**
      * The MVP-2 detail read API's rule-version routing lookup, per current-task.md section 1.3

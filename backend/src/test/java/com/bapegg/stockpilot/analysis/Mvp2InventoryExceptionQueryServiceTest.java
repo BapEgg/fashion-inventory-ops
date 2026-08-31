@@ -88,7 +88,7 @@ class Mvp2InventoryExceptionQueryServiceTest {
     @Test
     void bothAnalysisDateAndAnalysisRunIdIsRejectedAsForbidden() {
         ApiException e = assertThrows(ApiException.class, () -> service.listExceptions(
-                ANALYSIS_DATE, 1L, null, null, null, null, null, null, null, null, null, null));
+                ANALYSIS_DATE, 1L, null, null, null, null, null, null, null, null, null, null, null, null, null));
 
         assertEquals(ApiErrorCode.VALIDATION_ERROR, e.code());
         assertTrue(e.fieldErrors().stream().anyMatch(f -> f.field().equals("analysisDate") && f.code().equals("FORBIDDEN")));
@@ -97,7 +97,7 @@ class Mvp2InventoryExceptionQueryServiceTest {
     @Test
     void aRunBoundParameterWithNoAnalysisRunIdIsRejectedAsRequired() {
         ApiException e = assertThrows(ApiException.class, () -> service.listExceptions(
-                null, null, null, null, null, null, null, null, null, null, 1, null));
+                null, null, null, null, null, null, null, null, null, null, null, null, null, 1, null));
 
         assertEquals(ApiErrorCode.VALIDATION_ERROR, e.code());
         assertTrue(e.fieldErrors().stream().anyMatch(f -> f.field().equals("analysisRunId") && f.code().equals("REQUIRED")));
@@ -106,7 +106,7 @@ class Mvp2InventoryExceptionQueryServiceTest {
     @Test
     void aNonPositiveAnalysisRunIdIsRejectedAsFormat() {
         ApiException e = assertThrows(ApiException.class, () -> service.listExceptions(
-                null, 0L, null, null, null, null, null, null, null, null, null, null));
+                null, 0L, null, null, null, null, null, null, null, null, null, null, null, null, null));
 
         assertEquals(ApiErrorCode.VALIDATION_ERROR, e.code());
         assertTrue(e.fieldErrors().stream().anyMatch(f -> f.field().equals("analysisRunId") && f.code().equals("FORMAT")));
@@ -115,7 +115,7 @@ class Mvp2InventoryExceptionQueryServiceTest {
     @Test
     void anUnknownExceptionTypeValueIsRejectedAsFormat() {
         ApiException e = assertThrows(ApiException.class, () -> service.listExceptions(
-                null, 1L, List.of("NORMAL"), null, null, null, null, null, null, null, null, null));
+                null, 1L, List.of("NORMAL"), null, null, null, null, null, null, null, null, null, null, null, null));
 
         assertEquals(ApiErrorCode.VALIDATION_ERROR, e.code());
         assertTrue(e.fieldErrors().stream().anyMatch(f -> f.field().equals("exceptionType") && f.code().equals("FORMAT")));
@@ -124,7 +124,7 @@ class Mvp2InventoryExceptionQueryServiceTest {
     @Test
     void aMalformedSeverityValueIsRejectedAsFormat() {
         ApiException e = assertThrows(ApiException.class, () -> service.listExceptions(
-                null, 1L, null, List.of("not-a-severity"), null, null, null, null, null, null, null, null));
+                null, 1L, null, List.of("not-a-severity"), null, null, null, null, null, null, null, null, null, null, null));
 
         assertEquals(ApiErrorCode.VALIDATION_ERROR, e.code());
         assertTrue(e.fieldErrors().stream().anyMatch(f -> f.field().equals("severity") && f.code().equals("FORMAT")));
@@ -134,7 +134,7 @@ class Mvp2InventoryExceptionQueryServiceTest {
     @Test
     void aBlankStoreIdIsRejectedAsRequired() {
         ApiException e = assertThrows(ApiException.class, () -> service.listExceptions(
-                null, 1L, null, null, null, null, null, "   ", null, null, null, null));
+                null, 1L, null, null, null, null, null, "   ", null, null, null, null, null, null, null));
 
         assertEquals(ApiErrorCode.VALIDATION_ERROR, e.code());
         assertTrue(e.fieldErrors().stream().anyMatch(f -> f.field().equals("storeId") && f.code().equals("REQUIRED")));
@@ -143,7 +143,7 @@ class Mvp2InventoryExceptionQueryServiceTest {
     @Test
     void anOverlongSkuIdIsRejectedAsSize() {
         ApiException e = assertThrows(ApiException.class, () -> service.listExceptions(
-                null, 1L, null, null, null, null, null, null, "S".repeat(65), null, null, null));
+                null, 1L, null, null, null, null, null, null, "S".repeat(65), null, null, null, null, null, null));
 
         assertEquals(ApiErrorCode.VALIDATION_ERROR, e.code());
         assertTrue(e.fieldErrors().stream().anyMatch(f -> f.field().equals("skuId") && f.code().equals("SIZE")));
@@ -152,7 +152,7 @@ class Mvp2InventoryExceptionQueryServiceTest {
     @Test
     void aNegativePageIsRejectedAsFormat() {
         ApiException e = assertThrows(ApiException.class, () -> service.listExceptions(
-                null, 1L, null, null, null, null, null, null, null, null, -1, null));
+                null, 1L, null, null, null, null, null, null, null, null, null, null, null, -1, null));
 
         assertEquals(ApiErrorCode.VALIDATION_ERROR, e.code());
         assertTrue(e.fieldErrors().stream().anyMatch(f -> f.field().equals("page") && f.code().equals("FORMAT")));
@@ -161,7 +161,7 @@ class Mvp2InventoryExceptionQueryServiceTest {
     @Test
     void aSizeAboveOneHundredIsRejectedAsFormat() {
         ApiException e = assertThrows(ApiException.class, () -> service.listExceptions(
-                null, 1L, null, null, null, null, null, null, null, null, null, 101));
+                null, 1L, null, null, null, null, null, null, null, null, null, null, null, null, 101));
 
         assertEquals(ApiErrorCode.VALIDATION_ERROR, e.code());
         assertTrue(e.fieldErrors().stream().anyMatch(f -> f.field().equals("size") && f.code().equals("FORMAT")));
@@ -170,7 +170,7 @@ class Mvp2InventoryExceptionQueryServiceTest {
     @Test
     void multipleSimultaneousValidationFailuresAreAllReported() {
         ApiException e = assertThrows(ApiException.class, () -> service.listExceptions(
-                null, -1L, List.of("bogus"), null, null, null, null, "", null, null, -1, 999));
+                null, -1L, List.of("bogus"), null, null, null, null, "", null, null, null, null, null, -1, 999));
 
         assertEquals(ApiErrorCode.VALIDATION_ERROR, e.code());
         List<String> fields = e.fieldErrors().stream().map(ApiFieldError::field).toList();
@@ -190,7 +190,7 @@ class Mvp2InventoryExceptionQueryServiceTest {
         when(analysisRunRepository.findById(999L)).thenReturn(Optional.empty());
 
         ApiException e = assertThrows(ApiException.class, () -> service.listExceptions(
-                null, 999L, null, null, null, null, null, null, null, null, null, null));
+                null, 999L, null, null, null, null, null, null, null, null, null, null, null, null, null));
 
         assertEquals(ApiErrorCode.ANALYSIS_NOT_FOUND, e.code());
     }
@@ -201,7 +201,7 @@ class Mvp2InventoryExceptionQueryServiceTest {
         when(analysisRunRepository.findById(5L)).thenReturn(Optional.of(run));
 
         ApiException e = assertThrows(ApiException.class, () -> service.listExceptions(
-                null, 5L, null, null, null, null, null, null, null, null, null, null));
+                null, 5L, null, null, null, null, null, null, null, null, null, null, null, null, null));
 
         assertEquals(ApiErrorCode.VALIDATION_ERROR, e.code());
         assertTrue(e.fieldErrors().stream().anyMatch(f -> f.field().equals("analysisRunId") && f.code().equals("FORMAT")));
@@ -213,7 +213,7 @@ class Mvp2InventoryExceptionQueryServiceTest {
         when(analysisRunRepository.findById(7L)).thenReturn(Optional.of(run));
 
         ApiException e = assertThrows(ApiException.class, () -> service.listExceptions(
-                null, 7L, null, null, null, null, null, null, null, null, null, null));
+                null, 7L, null, null, null, null, null, null, null, null, null, null, null, null, null));
 
         assertEquals(ApiErrorCode.ANALYSIS_RESULTS_NOT_READY, e.code());
     }
@@ -332,14 +332,17 @@ class Mvp2InventoryExceptionQueryServiceTest {
         when(flag.getInventoryMetric()).thenReturn(metric);
         when(flag.getFlagCode()).thenReturn(MetricQualityFlag.OOS_CENSORED);
 
-        when(metricRepository.findPagedIds(eq(runId),
+        when(metricRepository.findPagedIdsByWorkPriorityAsc(eq(runId),
                 anyBoolean(), any(), anyBoolean(), any(), anyBoolean(), any(), anyBoolean(), any(), anyBoolean(), any(),
-                any(), any(), any(), any(), any(), any()))
+                any(), any(), any(), anyBoolean(), any(), any(), any(), any()))
                 .thenReturn(List.of(100L));
         when(metricRepository.countPaged(eq(runId),
                 anyBoolean(), any(), anyBoolean(), any(), anyBoolean(), any(), anyBoolean(), any(), anyBoolean(), any(),
-                any(), any(), any()))
+                any(), any(), any(), anyBoolean(), any()))
                 .thenReturn(1L);
+        when(metricRepository.summarize(eq(runId), any(), any()))
+                .thenReturn(java.util.Collections.singletonList(
+                        new Object[]{1L, 0L, 1L, 0L, 0L, 0L, 0L, new BigDecimal("50.00"), 0L}));
         when(metricRepository.findListRowsByInventoryMetricIdIn(
                 eq(List.of(100L)), eq(analysisDate.minusDays(1)), eq(INPUT_SNAPSHOT_VERSION)))
                 .thenReturn(java.util.Collections.singletonList(
@@ -359,7 +362,7 @@ class Mvp2InventoryExceptionQueryServiceTest {
                 .thenReturn(List.of());
 
         Mvp2InventoryExceptionPage page = service.listExceptions(
-                null, runId, null, null, null, null, null, null, null, null, null, null);
+                null, runId, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         assertEquals(1, page.totalElements());
         assertEquals(1, page.items().size());

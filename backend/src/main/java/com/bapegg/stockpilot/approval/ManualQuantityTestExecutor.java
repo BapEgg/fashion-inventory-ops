@@ -3,7 +3,10 @@ package com.bapegg.stockpilot.approval;
 import com.bapegg.stockpilot.analysis.SpAnalysisRun;
 import com.bapegg.stockpilot.analysis.SpInventoryMetric;
 import com.bapegg.stockpilot.demand.ManualQuantityEvaluation;
+import com.bapegg.stockpilot.demand.ManualQuantityViolation;
+import com.bapegg.stockpilot.rebalance.CandidateStatus;
 import com.bapegg.stockpilot.rebalance.DecisionStatus;
+import com.bapegg.stockpilot.rebalance.RecommendationMode;
 import com.bapegg.stockpilot.rebalance.SpRebalanceDecision;
 import com.bapegg.stockpilot.rebalance.SpRebalanceDecisionRepository;
 import com.bapegg.stockpilot.rebalance.SpRebalanceRecommendation;
@@ -11,6 +14,8 @@ import com.bapegg.stockpilot.rebalance.SpRebalanceRecommendationRepository;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 /**
  * The side-effect-free `MANUAL` quantity-test use case, per
@@ -69,6 +74,22 @@ public class ManualQuantityTestExecutor {
         SpAnalysisRun analysisRun = receiverMetric.getAnalysisRun();
         basisLoader.validateCurrent(recommendation, analysisRun, command.analysisRunId(),
                 command.inputSnapshotVersion(), command.ruleVersion(), command.candidateVersion());
+
+        // Redesign spec section 4.7 fail-closed guard: a COMPARISON_ONLY or already-REJECTED
+        // recommendation is never executable regardless of what the current numeric basis would
+        // otherwise recalculate to -- the UI never offers MANUAL for such a candidate (section 8.5),
+        // so this only matters for a direct/out-of-band API call, and it must still come back
+        // infeasible rather than leak a feasible-looking quantity test for a candidate the user
+        // cannot actually act on.
+        if (recommendation.getCandidateStatus() != CandidateStatus.ELIGIBLE
+                || recommendation.getRecommendationMode() != RecommendationMode.RECOMMENDED) {
+            return new ManualQuantityTestResult(
+                    command.recommendationId(), command.analysisRunId(), command.inputSnapshotVersion(),
+                    command.ruleVersion(), command.candidateVersion(), command.requestedQuantity(),
+                    false, true, 0, 0, 0,
+                    List.of(ManualQuantityViolation.CANDIDATE_INELIGIBLE), List.of(),
+                    0, 1, 0, 0, 0, null, true);
+        }
 
         LoadedApprovalBasis loaded = basisLoader.load(recommendation, analysisRun, command.inputSnapshotVersion());
 

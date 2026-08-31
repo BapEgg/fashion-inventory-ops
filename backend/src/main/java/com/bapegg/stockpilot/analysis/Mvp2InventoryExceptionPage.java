@@ -22,6 +22,7 @@ public record Mvp2InventoryExceptionPage(
         int totalPages,
         boolean hasPrevious,
         boolean hasNext,
-        List<Mvp2InventoryExceptionListItem> items
+        List<Mvp2InventoryExceptionListItem> items,
+        AllocatorWorkSummary summary
 ) {
 }

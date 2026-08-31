@@ -159,6 +159,33 @@ button:disabled {
   cursor: not-allowed;
 }
 
+/* Secondary/plain buttons default to the accent color on transparent -- .btn-primary marks the
+   one primary action in a group (재고 현황 갱신, 승인 확인 dialog's confirm) that should stay
+   filled even alongside other buttons that already default to filled (they are visually
+   equivalent today; this class exists so a future secondary-button restyle has a hook). */
+.btn-primary {
+  background: var(--color-accent);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* Right-aligned, tabular-figure numeric columns, per spec section 6.2. */
+.numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -252,19 +279,162 @@ dd {
   border-top: 1px solid var(--color-border-soft);
 }
 
+.analysis-toolbar__status-text,
+.analysis-toolbar__completed-at {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+
+.analysis-toolbar__details {
+  margin-top: 4px;
+}
+
+.analysis-toolbar__details summary {
+  color: var(--color-accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Work queue summary + work status tabs (spec sections 7.1-7.2)          */
+/* ---------------------------------------------------------------------- */
+
+.work-queue-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.work-queue-summary__tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-weight: 500;
+  text-align: left;
+}
+
+.work-queue-summary__tile:hover:not(:disabled) {
+  background: var(--color-bg);
+  border-color: var(--color-accent);
+}
+
+.work-queue-summary__tile--critical .work-queue-summary__value {
+  color: var(--color-danger);
+}
+
+.work-queue-summary__tile--wide {
+  grid-column: span 1;
+}
+
+.work-queue-summary__value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.work-queue-summary__label {
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.work-status-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+}
+
+.work-status-tabs__tab {
+  background: transparent;
+  color: var(--color-muted);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.85rem;
+}
+
+.work-status-tabs__tab:hover:not(:disabled) {
+  background: var(--color-bg);
+}
+
+.work-status-tabs__tab--active {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.work-status-tabs__count {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
 /* ---------------------------------------------------------------------- */
 /* Exception filters + list (section 4)                                   */
 /* ---------------------------------------------------------------------- */
 
 .exception-filters {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 16px;
+  flex-direction: column;
+  gap: 12px;
   padding: 16px 20px;
   border: 1px solid var(--color-border);
   border-radius: 10px;
   background: var(--color-surface);
+}
+
+.exception-filters__basic {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.exception-filters__advanced {
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border-soft);
+}
+
+.exception-filters__advanced summary {
+  color: var(--color-accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+.exception-filters__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.exception-filters__chip {
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.exception-filters__chip:hover:not(:disabled) {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  border-color: var(--color-danger-bg);
 }
 
 .exception-filters__group {
@@ -307,6 +477,78 @@ dd {
   background: transparent;
   color: var(--color-accent);
   border: 1px solid var(--color-border);
+}
+
+/* Master-detail split, per spec section 6.1. Without a selected detail, the worklist alone takes
+   the full row -- .workbench__detail simply does not render, so no empty right panel appears. */
+.workbench {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.workbench__detail {
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  .workbench--split {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .workbench--split .workbench__list {
+    flex: 0 0 40%;
+    min-width: 0;
+  }
+
+  .workbench--split .workbench__detail {
+    flex: 1 1 60%;
+  }
+}
+
+@media (min-width: 1280px) {
+  .workbench--split .workbench__list {
+    flex-basis: 44%;
+  }
+
+  .workbench--split .workbench__detail {
+    flex-basis: 56%;
+  }
+}
+
+.exception-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.exception-list__sort-bar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.exception-list__sort-bar label {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.exception-list th button {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.exception-list th button:hover:not(:disabled) {
+  color: var(--color-accent);
+  background: transparent;
 }
 
 .exception-list__scroll {
@@ -371,9 +613,105 @@ dd {
   font-size: 0.85rem;
 }
 
+.exception-detail__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 0;
+}
+
 .exception-detail__summary-grid {
   padding-top: 10px;
   border-top: 1px solid var(--color-border-soft);
+}
+
+.exception-detail__header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.exception-detail__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.exception-detail__tab {
+  background: transparent;
+  color: var(--color-muted);
+  border-radius: 8px 8px 0 0;
+  padding: 8px 14px;
+}
+
+.exception-detail__tab:hover:not(:disabled) {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.exception-detail__tab--active {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.exception-detail__candidates-tab,
+.exception-detail__inbound-tab,
+.exception-detail__basis-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.exception-detail__source summary {
+  color: var(--color-accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.committed-volume {
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-bg);
+}
+
+.committed-volume__notice {
+  color: var(--color-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.committed-volume__list {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 0.85rem;
+}
+
+.rejection-guidance,
+.review-input-guidance {
+  padding: 14px 16px;
+  border: 1px solid var(--color-warning-bg);
+  border-radius: 10px;
+  background: var(--color-warning-bg);
+}
+
+.rejection-guidance ul {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rejection-guidance__next-action {
+  color: var(--color-warning);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 2px 0 0;
 }
 
 .rule-assumptions {
@@ -413,6 +751,42 @@ dd {
   stroke: var(--color-success);
 }
 
+.observation-evidence__legend {
+  display: flex;
+  gap: 16px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.78rem;
+  color: var(--color-muted);
+  font-weight: 650;
+}
+
+.observation-evidence__legend-item::before {
+  content: "";
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.observation-evidence__legend-item--available::before {
+  background: var(--color-accent);
+}
+
+.observation-evidence__legend-item--sold::before {
+  background: var(--color-success);
+}
+
+.observation-evidence__source summary {
+  color: var(--color-accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 /* ---------------------------------------------------------------------- */
 /* Candidate workbench + scenario comparison (section 6)                  */
 /* ---------------------------------------------------------------------- */
@@ -432,11 +806,22 @@ dd {
   white-space: normal;
 }
 
-.candidate-group__rejections {
-  margin: 10px 0 0;
-  padding-left: 18px;
-  color: var(--color-danger);
+.candidate-group__donor-side {
+  margin-top: 12px;
+}
+
+.candidate-group__donor-side > summary {
+  color: var(--color-accent);
   font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+.candidate-group__selected-note {
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  font-weight: 650;
 }
 
 .candidate-row--selected {
@@ -446,6 +831,31 @@ dd {
 .scenario-comparison__confidence {
   color: var(--color-muted);
   font-size: 0.85rem;
+}
+
+.scenario-comparison__row--base {
+  background: var(--color-success-bg);
+}
+
+.scenario-comparison__base-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--color-success);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.6;
+  vertical-align: middle;
+}
+
+.scenario-comparison__warning {
+  margin-top: 4px;
+  color: var(--color-warning);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: normal;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -484,6 +894,29 @@ dd {
   color: var(--color-text);
 }
 
+.decision-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.decision-panel__reason {
+  padding: 12px 16px;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 8px;
+  background: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.decision-panel__reason summary {
+  color: var(--color-accent);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .decision-panel__hint {
   color: var(--color-warning);
   font-size: 0.82rem;
@@ -517,6 +950,74 @@ dd {
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid var(--color-border-soft);
+}
+
+.decision-history__audit-toggle {
+  margin-top: 8px;
+  background: transparent;
+  color: var(--color-accent);
+  border: 1px solid var(--color-border);
+  padding: 4px 10px;
+  font-size: 0.78rem;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Approval confirm dialog (spec section 9.5)                             */
+/* ---------------------------------------------------------------------- */
+
+.approval-confirm-dialog__backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(20, 33, 61, 0.55);
+  z-index: 100;
+}
+
+.approval-confirm-dialog {
+  width: min(440px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 20px 24px;
+  border-radius: 12px;
+  background: var(--color-surface);
+  box-shadow: 0 12px 32px rgba(20, 33, 61, 0.25);
+}
+
+.approval-confirm-dialog h2 {
+  margin: 0 0 12px;
+  font-size: 1.1rem;
+}
+
+.approval-confirm-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.approval-confirm-dialog__notice {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.approval-confirm-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.approval-confirm-dialog__actions button:first-child {
+  background: transparent;
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -571,7 +1072,7 @@ dd {
   }
 
   .analysis-toolbar__inputs,
-  .exception-filters,
+  .exception-filters__basic,
   .decision-panel__quantity {
     flex-direction: column;
     align-items: stretch;
@@ -579,6 +1080,10 @@ dd {
 
   .exception-filters__actions {
     margin-left: 0;
+  }
+
+  .work-queue-summary {
+    grid-template-columns: repeat(2, 1fr);
   }
 
   dl {

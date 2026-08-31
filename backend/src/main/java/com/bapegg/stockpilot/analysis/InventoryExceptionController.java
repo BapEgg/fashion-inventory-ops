@@ -40,13 +40,17 @@ public class InventoryExceptionController {
             @RequestParam(required = false) String storeId,
             @RequestParam(required = false) String skuId,
             @RequestParam(required = false) Boolean hasExecutableCandidate,
+            @RequestParam(required = false, name = "workStatus") List<String> workStatus,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortDirection,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size) {
 
         boolean runBoundParameterPresent = analysisRunId != null
                 || exceptionType != null || severity != null || signal != null || confidence != null
                 || qualityFlag != null || storeId != null || skuId != null
-                || hasExecutableCandidate != null || page != null || size != null;
+                || hasExecutableCandidate != null || workStatus != null || sortBy != null || sortDirection != null
+                || page != null || size != null;
 
         if (!runBoundParameterPresent) {
             return inventoryExceptionService.listExceptions(Optional.ofNullable(analysisDate));
@@ -54,7 +58,7 @@ public class InventoryExceptionController {
 
         return mvp2InventoryExceptionQueryService.listExceptions(
                 analysisDate, analysisRunId, exceptionType, severity, signal, confidence, qualityFlag,
-                storeId, skuId, hasExecutableCandidate, page, size);
+                storeId, skuId, hasExecutableCandidate, workStatus, sortBy, sortDirection, page, size);
     }
 
     /**

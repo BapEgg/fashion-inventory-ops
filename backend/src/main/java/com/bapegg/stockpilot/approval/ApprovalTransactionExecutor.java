@@ -6,7 +6,9 @@ import com.bapegg.stockpilot.demand.ApprovalBasisRecalculation;
 import com.bapegg.stockpilot.demand.ApprovalRequest;
 import com.bapegg.stockpilot.demand.ApprovalRequestValidation;
 import com.bapegg.stockpilot.demand.RecommendationBasis;
+import com.bapegg.stockpilot.rebalance.CandidateStatus;
 import com.bapegg.stockpilot.rebalance.DecisionStatus;
+import com.bapegg.stockpilot.rebalance.RecommendationMode;
 import com.bapegg.stockpilot.rebalance.SpApprovalBasis;
 import com.bapegg.stockpilot.rebalance.SpApprovalBasisRepository;
 import com.bapegg.stockpilot.rebalance.SpRebalanceDecision;
@@ -110,6 +112,16 @@ public class ApprovalTransactionExecutor {
         SpAnalysisRun analysisRun = receiverMetric.getAnalysisRun();
         basisLoader.validateCurrent(recommendation, analysisRun, command.analysisRunId(),
                 command.inputSnapshotVersion(), command.ruleVersion(), command.candidateVersion());
+
+        // Redesign spec section 4.7 fail-closed guard, checked once here -- after the recommendation
+        // lock and version validation, before any status-specific write branch -- so a COMPARISON_ONLY
+        // or already-REJECTED recommendation can never get a HELD/APPROVED/REJECTED decision, basis
+        // or draft row written for it via a direct/out-of-band API call, even though the UI itself
+        // never offers a decision action for such a candidate (section 8.5).
+        if (recommendation.getCandidateStatus() != CandidateStatus.ELIGIBLE
+                || recommendation.getRecommendationMode() != RecommendationMode.RECOMMENDED) {
+            throw staleRecommendation();
+        }
 
         if (command.status() != DecisionStatus.APPROVED) {
             SpRebalanceDecision decision = decisionRepository.save(SpRebalanceDecision.createMvp2Decision(

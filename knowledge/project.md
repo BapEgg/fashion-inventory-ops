@@ -204,6 +204,12 @@ trace와 내부 예외 메시지는 응답에 노출하지 않는다.
 
 ## 9. 목표 화면
 
+> 2026-08-31 갱신: 아래는 MVP-2 최초 목표 화면 설계이며 이후 Allocator workbench redesign
+> (`knowledge/state/2026-08-30-allocator-workbench-redesign-spec.md`)으로 사용자 용어·정보
+>구조·화면 흐름이 갱신되었다. 현재 실제 구현과 용어는 `README.md`와
+> `knowledge/state/implemented-state.md`를 기준으로 한다 -- "예외 목록/예외 상세"는 "처리 대상
+> worklist/상세"로, 화면 고지 문구도 아래와 다르게 바뀌었다.
+
 ### 예외 목록
 
 - 심각도, 수요 신호, 신뢰도, 품질 경고 배지

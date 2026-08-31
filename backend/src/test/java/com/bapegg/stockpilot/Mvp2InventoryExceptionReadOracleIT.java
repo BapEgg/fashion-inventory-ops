@@ -324,14 +324,18 @@ class Mvp2InventoryExceptionReadOracleIT {
         long total = ((Number) fullPage.get("totalElements")).longValue();
         assertEquals(total, fullOrderIds.size());
 
+        // Per redesign spec section 4.2, the default WORK_PRIORITY ASC order is: work status
+        // precedence first, then severity, then sales exposure DESC, then shortage DESC, then
+        // confidence, then the stable storeId/skuId/id tie-breaker -- workStatus now leads the key,
+        // replacing the old plain hasExecutableCandidate boolean.
         Comparator<Map<String, Object>> fixedOrder = Comparator
-                .comparingInt((Map<String, Object> i) -> severityRank((String) i.get("severity")))
-                .thenComparingInt(i -> Boolean.TRUE.equals(i.get("hasExecutableCandidate")) ? 0 : 1)
-                .thenComparingInt(i -> confidenceRank((String) i.get("demandConfidence")))
-                .thenComparing(i -> decimalValue(i.get("expectedShortageQuantity")),
-                        Comparator.nullsLast(Comparator.reverseOrder()))
+                .comparingInt((Map<String, Object> i) -> workStatusRank((String) i.get("workStatus")))
+                .thenComparingInt(i -> severityRank((String) i.get("severity")))
                 .thenComparing(i -> decimalValue(i.get("estimatedSalesImpact")),
                         Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(i -> decimalValue(i.get("expectedShortageQuantity")),
+                        Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparingInt(i -> confidenceRank((String) i.get("demandConfidence")))
                 .thenComparing(i -> (String) i.get("storeId"))
                 .thenComparing(i -> (String) i.get("skuId"))
                 .thenComparingLong(i -> ((Number) i.get("inventoryMetricId")).longValue());
@@ -390,10 +394,11 @@ class Mvp2InventoryExceptionReadOracleIT {
     }
 
     /**
-     * Per current-task.md section 5's query ceiling (list 6, detail 14) and the P1 finding that
-     * flagged it as unmeasured -- GS-01 is the richest single receiver metric available (an
-     * {@code ELIGIBLE} candidate with a route, scenarios and reasons), so its detail call
-     * exercises every conditional bulk-fetch branch.
+     * Per redesign spec section 4.5's query ceiling (list 9, detail 14, raised from the pre-redesign
+     * list ceiling of 6 by the run-wide summary aggregate plus the work-status/blocking-reason
+     * bulk-fetches) and the P1 finding that flagged it as unmeasured -- GS-01 is the richest single
+     * receiver metric available (an {@code ELIGIBLE} candidate with a route, scenarios and
+     * reasons), so its detail call exercises every conditional bulk-fetch branch.
      */
     private void assertQueryCountStaysWithinCeiling(Long runId, Long gs01MetricId) throws Exception {
         assertNotNull(gs01MetricId, "GS-01 receiver metric must exist in the golden run.");
@@ -411,9 +416,9 @@ class Mvp2InventoryExceptionReadOracleIT {
                 .andExpect(status().isOk());
         long detailStatementCount = statistics.getPrepareStatementCount();
         assertAll(
-                () -> assertTrue(listStatementCount <= 6,
+                () -> assertTrue(listStatementCount <= 9,
                         "Statement counts — list: " + listStatementCount + ", detail: " + detailStatementCount
-                                + "; list ceiling is 6"),
+                                + "; list ceiling is 9"),
                 () -> assertTrue(detailStatementCount <= 14,
                         "Statement counts — list: " + listStatementCount + ", detail: " + detailStatementCount
                                 + "; detail ceiling is 14"));
@@ -559,6 +564,17 @@ class Mvp2InventoryExceptionReadOracleIT {
         assertEquals("재고 예외 없음", notFound.get("TITLE_KO"));
         assertEquals("지정한 inventoryMetricId에 해당하는 조회 가능한 재고 예외가 없습니다.",
                 notFound.get("DEFAULT_DETAIL_KO"));
+    }
+
+    private static int workStatusRank(String workStatus) {
+        return switch (workStatus == null ? "" : workStatus) {
+            case "DECISION_REQUIRED" -> 0;
+            case "ON_HOLD" -> 1;
+            case "REVIEW_INPUT" -> 2;
+            case "NO_TRANSFER_OPTION" -> 3;
+            case "COMPLETED" -> 4;
+            default -> 5;
+        };
     }
 
     private static int severityRank(String severity) {

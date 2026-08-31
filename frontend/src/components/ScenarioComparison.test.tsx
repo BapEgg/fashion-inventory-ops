@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { ScenarioComparison } from './ScenarioComparison'
 import type { CandidateDetail, ScenarioView } from '../types'
@@ -64,7 +64,7 @@ describe('ScenarioComparison', () => {
     render(<ScenarioComparison candidate={candidate} demandConfidence="HIGH" />)
 
     const rowHeaders = screen.getAllByRole('rowheader').map((el) => el.textContent)
-    expect(rowHeaders).toEqual(['조치 없음', '보수적', '기준', '적극적'])
+    expect(rowHeaders).toEqual(['이동하지 않음', '낮은 수요 기준', '기준 수요 기준 제안', '높은 수요 기준'])
   })
 
   it('renders only scenarios present on the candidate, still in fixed order', () => {
@@ -72,7 +72,7 @@ describe('ScenarioComparison', () => {
     render(<ScenarioComparison candidate={candidate} demandConfidence="LOW" />)
 
     const rowHeaders = screen.getAllByRole('rowheader').map((el) => el.textContent)
-    expect(rowHeaders).toEqual(['조치 없음', '적극적'])
+    expect(rowHeaders).toEqual(['이동하지 않음', '높은 수요 기준'])
   })
 
   it('never discloses the raw warningSummary text -- only a fixed Korean notice keyed on its presence', () => {
@@ -85,23 +85,21 @@ describe('ScenarioComparison', () => {
     expect(screen.getByText('최소 이동수량·포장단위 조건으로 실행할 수 없는 시나리오입니다')).toBeInTheDocument()
   })
 
-  it('renders a dash in the warning column for a scenario with no warning', () => {
+  it('renders no warning notice for a scenario with no warning', () => {
     const candidate = candidateWith([scenario({ scenarioType: 'BASE', warningSummary: null })])
     render(<ScenarioComparison candidate={candidate} demandConfidence="HIGH" />)
-    const row = screen.getByRole('rowheader', { name: '기준' }).closest('tr')!
-    const cells = within(row).getAllByRole('cell')
-    expect(cells[cells.length - 1]).toHaveTextContent('—')
+    expect(screen.queryByText('최소 이동수량·포장단위 조건으로 실행할 수 없는 시나리오입니다')).not.toBeInTheDocument()
   })
 
   it('shows a fallback message when the candidate has no stored scenarios', () => {
     render(<ScenarioComparison candidate={candidateWith([])} demandConfidence={null} />)
-    expect(screen.getByText('저장된 자동 시나리오가 없습니다.')).toBeInTheDocument()
+    expect(screen.getByText('저장된 이동수량 비교가 없습니다.')).toBeInTheDocument()
   })
 
   it('shows demand confidence once in the header, not per row', () => {
     const candidate = candidateWith([scenario({ scenarioType: 'BASE' })])
     render(<ScenarioComparison candidate={candidate} demandConfidence="MEDIUM" />)
-    expect(screen.getByText('수요 신뢰도: 보통')).toBeInTheDocument()
+    expect(screen.getByText('판단 근거 수준: 보통')).toBeInTheDocument()
   })
 
   it('translates receiver/donor risk codes into Korean labels, never raw enum codes', () => {
@@ -111,7 +109,7 @@ describe('ScenarioComparison', () => {
     render(<ScenarioComparison candidate={candidate} demandConfidence="HIGH" />)
 
     expect(screen.getByText('품절 위험')).toBeInTheDocument()
-    expect(screen.getByText('과잉재고')).toBeInTheDocument()
+    expect(screen.getByText('과다 재고')).toBeInTheDocument()
     expect(screen.queryByText('STOCKOUT_RISK')).not.toBeInTheDocument()
     expect(screen.queryByText('OVERSTOCK')).not.toBeInTheDocument()
   })

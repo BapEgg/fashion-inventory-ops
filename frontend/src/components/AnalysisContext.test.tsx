@@ -51,7 +51,7 @@ describe('AnalysisContext', () => {
     const onRunStarting = vi.fn()
     render(<AnalysisContext onRunStarting={onRunStarting} onRunCompleted={vi.fn()} />)
 
-    fireEvent.click(screen.getByRole('button', { name: '분석 실행' }))
+    fireEvent.click(screen.getByRole('button', { name: '재고 현황 갱신' }))
 
     expect(onRunStarting).toHaveBeenCalledTimes(1)
     resolveRun(baseRun({ status: 'RUNNING' }) as any)
@@ -64,12 +64,12 @@ describe('AnalysisContext', () => {
     const onRunCompleted = vi.fn()
     render(<AnalysisContext onRunStarting={vi.fn()} onRunCompleted={onRunCompleted} />)
 
-    fireEvent.click(screen.getByRole('button', { name: '분석 실행' }))
+    fireEvent.click(screen.getByRole('button', { name: '재고 현황 갱신' }))
     await flush()
 
-    expect(screen.getByText('기존 완료 결과를 불러왔습니다.')).toBeInTheDocument()
+    expect(screen.getByText('기존 갱신 결과를 불러왔습니다.')).toBeInTheDocument()
     // The run-context status renders the exhaustive Korean label, never the raw enum code.
-    expect(screen.getByText('완료됨')).toBeInTheDocument()
+    expect(screen.getByText('갱신 완료')).toBeInTheDocument()
     expect(screen.queryByText('COMPLETED')).not.toBeInTheDocument()
     expect(onRunCompleted).toHaveBeenCalledTimes(1)
     expect(onRunCompleted).toHaveBeenCalledWith(expect.objectContaining({ analysisRunId: 1, status: 'COMPLETED' }), true)
@@ -84,18 +84,18 @@ describe('AnalysisContext', () => {
     const onRunCompleted = vi.fn()
     render(<AnalysisContext onRunStarting={vi.fn()} onRunCompleted={onRunCompleted} />)
 
-    fireEvent.click(screen.getByRole('button', { name: '분석 실행' }))
+    fireEvent.click(screen.getByRole('button', { name: '재고 현황 갱신' }))
     await flush()
-    expect(screen.getByText('분석이 진행 중입니다. 자동으로 상태를 확인하고 있습니다…')).toBeInTheDocument()
+    expect(screen.getByText('재고 현황을 갱신하고 있습니다…')).toBeInTheDocument()
     expect(api.runAnalysis).toHaveBeenCalledTimes(1)
 
     await advance(1500)
     expect(api.getAnalysisStatus).toHaveBeenCalledTimes(1)
-    expect(screen.getByText('분석이 진행 중입니다. 자동으로 상태를 확인하고 있습니다…')).toBeInTheDocument()
+    expect(screen.getByText('재고 현황을 갱신하고 있습니다…')).toBeInTheDocument()
 
     await advance(1500)
 
-    expect(screen.getByText('분석이 완료되었습니다.')).toBeInTheDocument()
+    expect(screen.getByText('재고 현황 갱신이 완료되었습니다.')).toBeInTheDocument()
     expect(onRunCompleted).toHaveBeenCalledWith(expect.objectContaining({ status: 'COMPLETED' }), false)
   })
 
@@ -104,11 +104,11 @@ describe('AnalysisContext', () => {
     vi.mocked(api.getAnalysisStatus).mockResolvedValueOnce(baseRun({ status: 'FAILED' }) as any)
     render(<AnalysisContext onRunStarting={vi.fn()} onRunCompleted={vi.fn()} />)
 
-    fireEvent.click(screen.getByRole('button', { name: '분석 실행' }))
+    fireEvent.click(screen.getByRole('button', { name: '재고 현황 갱신' }))
     await flush()
     await advance(1500)
 
-    expect(screen.getByText('분석 실행에 실패했습니다.')).toBeInTheDocument()
+    expect(screen.getByText('재고 현황 갱신에 실패했습니다.')).toBeInTheDocument()
   })
 
   it('switches to a timeout state after the maximum poll attempts without a manual refresh call', async () => {
@@ -116,15 +116,15 @@ describe('AnalysisContext', () => {
     vi.mocked(api.getAnalysisStatus).mockResolvedValue(baseRun({ status: 'RUNNING' }) as any)
     render(<AnalysisContext onRunStarting={vi.fn()} onRunCompleted={vi.fn()} />)
 
-    fireEvent.click(screen.getByRole('button', { name: '분석 실행' }))
+    fireEvent.click(screen.getByRole('button', { name: '재고 현황 갱신' }))
     await flush()
 
     for (let i = 0; i < 40; i += 1) {
       await advance(1500)
     }
 
-    expect(screen.getByText('계속 실행 중입니다.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '상태 새로고침' })).toBeInTheDocument()
+    expect(screen.getByText('갱신이 계속 진행 중입니다')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '상태 확인' })).toBeInTheDocument()
     expect(api.getAnalysisStatus).toHaveBeenCalledTimes(40)
   }, 20000)
 })

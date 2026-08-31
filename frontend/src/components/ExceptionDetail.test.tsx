@@ -122,6 +122,19 @@ function detail(overrides: Partial<Mvp2InventoryExceptionDetail> = {}): Mvp2Inve
   }
 }
 
+function renderDetail(overrides: Partial<Parameters<typeof ExceptionDetail>[0]> = {}) {
+  const props = {
+    inventoryMetricId: 100,
+    workStatus: 'DECISION_REQUIRED' as const,
+    onClose: vi.fn(),
+    actorLabel: 'tester',
+    onActorLabelChange: vi.fn(),
+    onDecisionSaved: vi.fn(),
+    ...overrides,
+  }
+  return { ...render(<ExceptionDetail {...props} />), props }
+}
+
 async function flush() {
   await act(async () => {
     await vi.advanceTimersByTimeAsync(0)
@@ -130,6 +143,7 @@ async function flush() {
 
 beforeEach(() => {
   vi.useFakeTimers()
+  vi.mocked(api.getDecisionHistory).mockResolvedValue({ recommendationId: 1, currentStatus: null, decisions: [] })
 })
 
 afterEach(() => {
@@ -138,43 +152,71 @@ afterEach(() => {
 })
 
 describe('ExceptionDetail candidate/decision wiring', () => {
-  it('renders no scenario comparison or decision panel until a candidate is selected', async () => {
+  it('auto-selects the first actionable candidate and reveals the scenario comparison and decision sections', async () => {
     vi.mocked(api.getExceptionDetail).mockResolvedValue(detail())
-    render(<ExceptionDetail inventoryMetricId={100} onClose={() => {}} actorLabel="tester" onActorLabelChange={() => {}} />)
+    renderDetail()
     await flush()
 
     expect(screen.getByText(/강남점/)).toBeInTheDocument()
-    expect(screen.queryByRole('region', { name: '자동 시나리오 비교' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('region', { name: '수량 시험과 결정' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '선택됨' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '이동수량 비교' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '이동 승인·보류·반려' })).toBeInTheDocument()
   })
 
-  it('reveals the scenario comparison and decision panel once a candidate is selected', async () => {
+  it('calls onClose when 처리 대상 목록 is clicked', async () => {
     vi.mocked(api.getExceptionDetail).mockResolvedValue(detail())
-    vi.mocked(api.getDecisionHistory).mockResolvedValue({ recommendationId: 1, currentStatus: null, decisions: [] })
-    render(<ExceptionDetail inventoryMetricId={100} onClose={() => {}} actorLabel="tester" onActorLabelChange={() => {}} />)
+    const { props } = renderDetail()
     await flush()
 
-    fireEvent.click(screen.getByRole('button', { name: '선택' }))
-    await flush()
-
-    expect(screen.getByRole('region', { name: '자동 시나리오 비교' })).toBeInTheDocument()
-    expect(screen.getByRole('region', { name: '수량 시험과 결정' })).toBeInTheDocument()
-  })
-
-  it('calls onClose when 목록으로 is clicked', async () => {
-    vi.mocked(api.getExceptionDetail).mockResolvedValue(detail())
-    const onClose = vi.fn()
-    render(<ExceptionDetail inventoryMetricId={100} onClose={onClose} actorLabel="tester" onActorLabelChange={() => {}} />)
-    await flush()
-
-    fireEvent.click(screen.getByRole('button', { name: /목록으로/ }))
-    expect(onClose).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: /처리 대상 목록/ }))
+    expect(props.onClose).toHaveBeenCalledTimes(1)
   })
 
   it('STALE_RECOMMENDATION on decide() triggers a real detail refresh that re-syncs the selected candidate', async () => {
     const { ApiError } = await import('../api')
     vi.mocked(api.getExceptionDetail).mockResolvedValueOnce(detail())
-    vi.mocked(api.getDecisionHistory).mockResolvedValue({ recommendationId: 1, currentStatus: null, decisions: [] })
+    vi.mocked(api.simulateManualQuantity).mockResolvedValue({
+      recommendationId: 1,
+      analysisRunId: 9,
+      inputSnapshotVersion: 'V1',
+      ruleVersion: 'R1',
+      candidateVersion: 1,
+      requestedQuantity: 10,
+      feasible: true,
+      reasonRequired: false,
+      recommendedBaseQuantity: 10,
+      maximumFeasibleQuantity: 20,
+      suggestedQuantity: 10,
+      violations: [],
+      candidateRejectionReasons: [],
+      routeMinimumQuantity: 1,
+      packageMultiple: 1,
+      routeMaximumQuantity: 50,
+      donorTransferableQuantity: 20,
+      receiverCapacityRemaining: 100,
+      projection: {
+        receiverBeforeAvailable: 2,
+        receiverAfterAvailable: 12,
+        receiverBeforeCoverageDays: 1.25,
+        receiverAfterCoverageDays: 7,
+        receiverRiskCode: 'NORMAL',
+        donorBeforeAvailable: 30,
+        donorAfterAvailable: 20,
+        donorBeforeCoverageDays: 20,
+        donorAfterCoverageDays: 14,
+        donorRiskCode: null,
+        leadTimeDays: 2,
+        expectedArrivalDate: '2026-10-02',
+        receiverInboundArrivingBeforeTransfer: 0,
+        receiverOpenTransferInbound: 0,
+        receiverOpenTransferOutbound: 0,
+        donorInboundArrivingBeforeDispatch: 0,
+        donorOpenTransferOutbound: 0,
+        donorAlreadyApprovedDraftQuantity: 0,
+      },
+      approvalRevalidationRequired: false,
+      assumption: { type: 'SYNTHETIC', notice: '합성 데모 데이터' },
+    })
     vi.mocked(api.decide).mockRejectedValueOnce(
       new ApiError({
         type: 'about:blank',
@@ -188,16 +230,13 @@ describe('ExceptionDetail candidate/decision wiring', () => {
         timestamp: '2026-08-29T00:00:00Z',
       }),
     )
-    render(<ExceptionDetail inventoryMetricId={100} onClose={() => {}} actorLabel="tester" onActorLabelChange={() => {}} />)
+    renderDetail()
     await flush()
 
-    fireEvent.click(screen.getByRole('button', { name: '선택' }))
-    await flush()
-
-    fireEvent.click(screen.getByRole('radio', { name: '거절됨' }))
-    fireEvent.change(screen.getByLabelText(/사유 코드/), { target: { value: 'DEMO' } })
-    fireEvent.change(screen.getByLabelText(/사유 설명/), { target: { value: '재검토' } })
-    fireEvent.click(screen.getByRole('button', { name: '거절됨 제출' }))
+    fireEvent.click(screen.getByRole('button', { name: '보류' }))
+    fireEvent.change(screen.getByLabelText('사유'), { target: { value: 'MANAGER_REVIEW' } })
+    fireEvent.change(screen.getByLabelText('처리 메모'), { target: { value: '재검토' } })
+    fireEvent.click(screen.getByRole('button', { name: '보류' }))
     await flush()
 
     expect(screen.getByText('오래된 추천')).toBeInTheDocument()
@@ -222,60 +261,46 @@ describe('ExceptionDetail candidate/decision wiring', () => {
         ],
       }),
     )
-    fireEvent.click(screen.getByRole('button', { name: '상세 새로고침' }))
+    fireEvent.click(screen.getByRole('button', { name: '최신 내용 불러오기' }))
     await flush()
 
     expect(api.getExceptionDetail).toHaveBeenCalledTimes(2)
     // Selection is preserved across the refresh (still recommendationId 1) and the panel now shows
     // the freshly refreshed terminal state instead of the stale form.
-    expect(screen.getByText('이미 최종 결정된 후보입니다. 아래 이력만 확인할 수 있습니다.')).toBeInTheDocument()
+    expect(screen.getByText('이미 처리 완료된 이동안입니다.')).toBeInTheDocument()
   })
 })
 
-describe('ExceptionDetail Summary primary/secondary fields', () => {
-  it('renders inventoryExceptionType/severity as primary for a REVIEW_REQUIRED/REVIEW case, with classification/priority kept only as secondary evidence', async () => {
-    vi.mocked(api.getExceptionDetail).mockResolvedValue(
-      detail({
-        metric: {
-          ...detail().metric!,
-          classification: 'NORMAL',
-          priority: null,
-          inventoryExceptionType: 'REVIEW_REQUIRED',
-          severity: 'REVIEW',
-        },
-      }),
-    )
-    render(<ExceptionDetail inventoryMetricId={100} onClose={() => {}} actorLabel="tester" onActorLabelChange={() => {}} />)
-    await flush()
-
-    // Primary fields read the MVP-2 result, never the legacy classification/priority.
-    const primaryType = screen.getByText('예외 유형').nextElementSibling
-    expect(primaryType).toHaveTextContent('검토 필요')
-    const primarySeverity = screen.getByText('심각도').nextElementSibling
-    expect(primarySeverity).toHaveTextContent('검토')
-
-    // Legacy classification/priority may still appear, but only as clearly-labeled secondary
-    // evidence -- never presented as the exception's actual type/severity.
-    const secondaryClassification = screen.getByText('분류 근거 (참고)').nextElementSibling
-    expect(secondaryClassification).toHaveTextContent('정상')
-    const secondaryPriority = screen.getByText('우선순위 (참고)').nextElementSibling
-    expect(secondaryPriority).toHaveTextContent('—')
-  })
-
-  it('shows the full run identity (date/input version/rule version/completed time)', async () => {
+describe('ExceptionDetail object header', () => {
+  it('shows the work status, severity and review-reason badges plus the four key figures', async () => {
     vi.mocked(api.getExceptionDetail).mockResolvedValue(detail())
-    render(<ExceptionDetail inventoryMetricId={100} onClose={() => {}} actorLabel="tester" onActorLabelChange={() => {}} />)
+    renderDetail({ workStatus: 'DECISION_REQUIRED' })
     await flush()
 
-    expect(screen.getByText(/run #9/)).toBeInTheDocument()
-    expect(screen.getByText(/2026-09-30/)).toBeInTheDocument()
-    expect(screen.getByText(/입력 V1/)).toBeInTheDocument()
-    expect(screen.getByText(/규칙 R1/)).toBeInTheDocument()
+    expect(screen.getByText('이동 결정 필요')).toBeInTheDocument()
+    expect(screen.getByText('긴급')).toBeInTheDocument()
+    expect(screen.getByText('품절 위험')).toBeInTheDocument()
+    expect(screen.getByText('현재 판매가능재고')).toBeInTheDocument()
+    expect(screen.getByText('목표재고 대비 부족')).toBeInTheDocument()
+    expect(screen.getByText('재고일수')).toBeInTheDocument()
+  })
+
+  it('shows the full run identity only under the 산출 기준 상세 tab', async () => {
+    vi.mocked(api.getExceptionDetail).mockResolvedValue(detail())
+    renderDetail()
+    await flush()
+
+    expect(screen.queryByText(/run ID/)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: '산출 기준 상세' }))
+
+    expect(screen.getByText('run ID').nextElementSibling).toHaveTextContent('9')
+    expect(screen.getByText('입력 스냅샷 버전').nextElementSibling).toHaveTextContent('V1')
+    expect(screen.getByText('규칙 버전').nextElementSibling).toHaveTextContent('R1')
   })
 })
 
-describe('ExceptionDetail related evidence', () => {
-  it('shows source/assumption for demand events, source for inbound, and translated direction plus donor/receiver identity and source for open transfers', async () => {
+describe('ExceptionDetail 입고·매장이동 tab', () => {
+  it('shows source for events/inbound, and translated direction plus donor/receiver identity for open transfers', async () => {
     vi.mocked(api.getExceptionDetail).mockResolvedValue(
       detail({
         demandEvents: [
@@ -314,51 +339,33 @@ describe('ExceptionDetail related evidence', () => {
         ],
       }),
     )
-    render(<ExceptionDetail inventoryMetricId={100} onClose={() => {}} actorLabel="tester" onActorLabelChange={() => {}} />)
+    renderDetail()
     await flush()
+    fireEvent.click(screen.getByRole('tab', { name: '입고·매장이동' }))
 
-    expect(screen.getAllByText('출처').length).toBeGreaterThanOrEqual(3)
-    expect(screen.getByText('ERP')).toBeInTheDocument()
-    expect(screen.getByText('가정')).toBeInTheDocument()
-    expect(screen.getByText('ASSUMPTION')).toBeInTheDocument()
-    expect(screen.getByText('WMS')).toBeInTheDocument()
-
+    expect(screen.getByText('확정 입고 일정')).toBeInTheDocument()
+    expect(screen.getByText('진행 중 매장이동')).toBeInTheDocument()
+    expect(screen.getByText('등록 행사·가격변경')).toBeInTheDocument()
     expect(screen.getByText('공급 → 수령 매장')).toBeInTheDocument()
     expect(screen.getByText('ST-2 → ST-1')).toBeInTheDocument()
-    expect(screen.getByText('TMS')).toBeInTheDocument()
     expect(screen.getByText('수령')).toBeInTheDocument()
     expect(screen.queryByText('RECEIVER')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('데이터 출처 보기'))
+    expect(screen.getByText('입고 IB-1').nextElementSibling).toHaveTextContent('WMS')
+    expect(screen.getByText('이동 OT-1').nextElementSibling).toHaveTextContent('TMS')
+    expect(screen.getByText('행사 EVT-1').nextElementSibling).toHaveTextContent(/ERP.*ASSUMPTION/)
   })
 
-  it('contains each of the three related-evidence tables in its own local horizontal-scroll wrapper, not page overflow', async () => {
-    vi.mocked(api.getExceptionDetail).mockResolvedValue(
-      detail({
-        demandEvents: [
-          { eventCode: 'EVT-1', eventType: 'PROMOTION', startDate: '2026-09-10', endDate: '2026-09-15', upliftLow: 1, upliftBase: 2, upliftHigh: 3, sourceType: 'ERP', assumptionType: 'ASSUMPTION' },
-        ],
-        inboundSchedules: [
-          { inboundReference: 'IB-1', quantity: 10, etaAt: '2026-10-01T00:00:00Z', inboundStatus: 'CONFIRMED', sourceType: 'WMS' },
-        ],
-        openTransfers: [
-          { transferReference: 'OT-1', direction: 'RECEIVER', donorStoreId: 'ST-2', receiverStoreId: 'ST-1', quantity: 5, etaAt: '2026-10-02T00:00:00Z', transferStatus: 'IN_TRANSIT', sourceType: 'TMS' },
-        ],
-      }),
-    )
-    const { container } = render(
-      <ExceptionDetail inventoryMetricId={100} onClose={() => {}} actorLabel="tester" onActorLabelChange={() => {}} />,
-    )
+  it('shows empty-state text instead of a bare dash for each of the three sections', async () => {
+    vi.mocked(api.getExceptionDetail).mockResolvedValue(detail())
+    renderDetail()
     await flush()
+    fireEvent.click(screen.getByRole('tab', { name: '입고·매장이동' }))
 
-    const tables = container.querySelectorAll('table')
-    // Summary/observation evidence tables sit elsewhere -- this asserts the three related-evidence
-    // ones (events, inbound, open transfers) specifically each have a `*__scroll` ancestor, the
-    // class the stylesheet keys `overflow-x: auto` off of, rather than relying on page-level scroll.
-    const relatedEvidenceTables = Array.from(tables).filter((t) => t.closest('[aria-label="이벤트, 입고, 진행 중 이동, 정책"]'))
-    expect(relatedEvidenceTables).toHaveLength(3)
-    for (const table of relatedEvidenceTables) {
-      const scrollAncestor = table.closest('[class$="__scroll"]')
-      expect(scrollAncestor).not.toBeNull()
-    }
+    expect(screen.getByText('확정 입고 없음')).toBeInTheDocument()
+    expect(screen.getByText('진행 중 매장이동 없음')).toBeInTheDocument()
+    expect(screen.getByText('등록된 행사 없음')).toBeInTheDocument()
   })
 })
 
@@ -377,7 +384,7 @@ describe('ExceptionDetail main error recovery', () => {
       timestamp: '2026-08-29T00:00:00Z',
     })
     vi.mocked(api.getExceptionDetail).mockRejectedValueOnce(retryable).mockResolvedValueOnce(detail())
-    render(<ExceptionDetail inventoryMetricId={100} onClose={() => {}} actorLabel="tester" onActorLabelChange={() => {}} />)
+    renderDetail()
     await flush()
 
     expect(screen.getByText('일시적 오류')).toBeInTheDocument()

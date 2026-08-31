@@ -61,8 +61,12 @@ public class CurrentApprovalBasisLoader {
     private static final ZoneId ASSUMPTION_TIMEZONE = ZoneId.of("Asia/Seoul");
     private static final Set<OpenTransferStatus> COMMITTED_OPEN_TRANSFER_STATUSES =
             EnumSet.of(OpenTransferStatus.APPROVED, OpenTransferStatus.IN_TRANSIT);
+    // Per redesign spec section 4.6: APPROVED/IN_TRANSIT are already reflected once in
+    // COMMITTED_OPEN_TRANSFER_STATUSES's projection quantities above -- re-blocking the same lane
+    // as a "pending conflict" double-penalizes quantity already accounted for. Only a REQUESTED
+    // (not-yet-approved) request on the same donor-receiver-SKU lane is a genuine conflict.
     private static final Set<OpenTransferStatus> PENDING_CONFLICT_STATUSES =
-            EnumSet.of(OpenTransferStatus.REQUESTED, OpenTransferStatus.APPROVED, OpenTransferStatus.IN_TRANSIT);
+            EnumSet.of(OpenTransferStatus.REQUESTED);
     private static final Set<DraftStatus> ACTIVE_DRAFT_STATUSES =
             EnumSet.of(DraftStatus.CREATED, DraftStatus.READY, DraftStatus.SENT, DraftStatus.ACCEPTED);
 

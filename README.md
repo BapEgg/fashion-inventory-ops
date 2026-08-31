@@ -93,8 +93,9 @@ StockPilot은 “어느 매장에서 어떤 상품이 부족한가?”를 보여
 - **후보·시나리오 비교**: 공급 후보의 통과/탈락과 탈락 사유를 담당자 용어로 보여주고,
   무조치·보수적·기준·공격적 네 시나리오를 양쪽 매장 관점으로 비교합니다.
 - **수동 수량 시험**: 저장 없이 임의 수량의 제약 통과 여부와 전후 재고를 계산합니다.
-- **보류·승인·반려**: 확인 모달로 이동 전후 재고를 다시 보여준 뒤, 멱등 key와 최신
-  근거 검증을 거쳐 append-only 결정을 저장합니다.
+- **보류·승인·반려**: 실행 가능한 후보를 열면 추천수량으로 자동 수량시험이 한 번
+  실행되고, 승인은 별도 확인 대화상자로 매장·수량·전후 재고를 다시 보여준 뒤 멱등
+  key와 최신 근거 검증을 거쳐 append-only 결정을 저장합니다.
 - **처리 이력과 승인 근거**: 결정 이력, 승인 시점 근거 스냅샷, ERP 이동요청 초안을
   조회합니다.
 - **AI 설명(선택)**: provider가 없어도 핵심 기능은 정상 동작하며, AI는 계산된 사실의
@@ -109,7 +110,7 @@ StockPilot은 “어느 매장에서 어떤 상품이 부족한가?”를 보여
 | Backend | Java 21, Spring Boot 4.1, Spring Batch, Spring Data JPA, Flyway |
 | Frontend | React 19, TypeScript, Vite, Testing Library, Vitest |
 | Database / Infra | Oracle Database Free, Docker Compose, PowerShell 운영 스크립트 |
-| 검증 규모 | Backend 531/531, Frontend 100/100, Flyway V1~V16, 6개 합성 골든 시나리오 |
+| 검증 규모 | Backend 527/527, Frontend 106/106, Flyway V1~V16, 6개 합성 골든 시나리오 |
 
 ### 아키텍처
 
@@ -340,17 +341,46 @@ lazy 접근은 필요한 필드까지 fetch join으로 미리 가져오도록 �
 **정확히 몇 건이 있다는 가정 대신 최신·특정 조건으로 좁히는 조회**를 기본값으로 삼아야
 합니다.
 
+### 5. 로컬 개발 DB가 최신 Flyway 마이그레이션과 조용히 어긋나 있던 문제
+
+**문제**
+장시간 켜둔 로컬 Oracle 컨테이너에서 백엔드가 기동 직후 `Migration checksum mismatch for
+migration version 7`로 죽었습니다. 파일 시스템의 V7 마이그레이션은 git 기준 정상이었는데도
+DB에 기록된 체크섬과 달랐습니다.
+
+**원인**
+Flyway는 "이미 적용된 마이그레이션 파일이 이후에 바뀌었는가"만 체크섬으로 검증합니다. 이
+컨테이너는 V7이 지금과 다른 내용이던 시점에 이미 마이그레이션을 적용한 뒤, 이후 커밋에서
+V7 내용이 바뀌었는데도 DB는 갱신되지 않은 채로 오래 유지된 상태였습니다.
+
+**해결**
+`docker compose down -v`로 명명 볼륨까지 완전히 지우고 컨테이너를 새로 만들어 V1~V16을
+처음부터 다시 적용했습니다(모든 데이터가 SYNTHETIC 데모 데이터이므로 안전). 이 과정에서
+추가로 발견한 두 번째 문제 — 데모 영상용 확장 마이그레이션(V16)이 실제로 존재하지 않는
+상품 SKU와 매장 ID를 참조해 `ORA-02291`/`ORA-01400` 제약 위반으로 실패하는 것 — 도 함께
+고쳤습니다: 참조하던 6개 상품을 마이그레이션 안에 직접 추가하고, 지어낸 매장 ID를 실제
+시드 데이터의 매장 ID로 교정했습니다.
+
+**배운 점**
+"파일은 git과 일치한다"와 "이 DB가 그 파일 그대로 적용됐다"는 서로 다른 명제입니다.
+오래 켜둔 로컬 dev 환경일수록 스키마 히스토리가 코드보다 먼저 신뢰를 잃을 수 있으므로,
+**의심스러우면 볼륨을 통째로 재생성해 처음부터 재현되는지 확인**하는 편이 diff를 추적하는
+것보다 빠르고 확실했습니다.
+
+관련 코드: [`V16__expand_mvp2_demo_scenario_v2.sql`](backend/src/main/resources/db/migration/V16__expand_mvp2_demo_scenario_v2.sql)
+
 ## 검증 결과
 
 2026-08-31 기준 실제 실행이 확인된 결과입니다.
 
 | 검증 | 결과 |
 |---|---|
-| Oracle Backend 전체 | 531/531 통과, skip·실패·오류 0 |
-| Flyway | V1~V16 clean migration·validation 통과 (V16은 시연 영상용 추가 데모 데이터) |
-| Frontend | 100/100 통과, `tsc --noEmit` clean, production build 통과 |
-| 목록 query ceiling | size=1/size=100 동일 statement 수, 업무 상태·정렬 확장 후에도 ceiling 이내 |
-| Browser 수용 시나리오 | 이동 결정 필요/원인 확인/이동안 없음 탭, 업무 상태·심각도 분리 표시, 후보 탈락 사유 번역, MANUAL 시험, 승인 확인 모달을 실제 Oracle 기반 실행 결과로 확인 |
+| Oracle Backend 전체 | 527/527 통과, skip·실패·오류 0 |
+| Flyway | V1~V16 처음부터 clean migration·validation 통과 |
+| Frontend | 106/106 통과, `tsc --noEmit` clean, production build 통과 |
+| 목록 query ceiling | size=1/size=100 동일 statement 수(9), 업무 상태·정렬·요약 확장 후에도 ceiling 이내 |
+| 실제 분석 실행 | 확장 데모 스냅샷(6개 상품 × 9개 매장) 기준 분석을 실제로 실행해 54건의 처리 대상이 정상 산출됨을 확인 |
+| Browser 수용 시나리오 | 재고 현황 갱신 → 업무 요약/업무 상태 탭 → 검토하기 → 후보 자동 선택·자동 수량시험 → 승인 확인 대화상자 → 승인 완료까지, 실제 Oracle 기반 실행 결과로 전체 흐름 확인 |
 | Repository | `git diff --check` exit 0 |
 
 검증 script는 Oracle을 임의 생성·삭제하지 않습니다. full test는 실행 중인 Oracle과

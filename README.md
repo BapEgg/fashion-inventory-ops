@@ -1,6 +1,6 @@
 # StockPilot
 
-[![StockPilot](docs/images/stockpilot-thumbnail.png)](https://raw.githubusercontent.com/BapEgg/fashion-inventory-ops/main/docs/videos/stockpilot-demo.mp4)
+<img alt="StockPilot" src="docs/videos/stockpilot-demo.gif" width="90%">
 
 > 패션 리테일의 매장별·SKU별 재고 불균형을 찾아, 담당자가 **근거를 확인하고
 > 매장간 이동수량을 검토·승인**할 수 있게 만든 재고 배분 의사결정 지원 서비스

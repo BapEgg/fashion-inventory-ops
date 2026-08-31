@@ -226,20 +226,6 @@ erDiagram
     }
 ```
 
-### 모델링에서 중요하게 본 점
-
-- `(analysisDate, inputSnapshotVersion, ruleVersion)`을 분석 실행의 식별 기준으로 삼아 새
-  입력·규칙이 과거 결과를 덮어쓰지 않게 했습니다.
-- 한 추천에 여러 scenario를 자식으로 두어 “추천량 하나”와 “비교 가능한 여러 결과”를
-  분리했습니다.
-- 탈락 후보도 삭제하지 않고 사유를 별도 행으로 보존해, 결과가 없는 이유까지 설명할 수
-  있게 했습니다.
-- 결정은 update가 아니라 sequence 기반 append-only 이력으로 저장합니다.
-- 승인 시 계산 근거를 `SP_APPROVAL_BASIS`에 동결해 이후 정책·재고가 변해도 당시 승인
-  근거를 재현할 수 있게 했습니다.
-- DB는 FK, unique, check constraint를 최종 방어선으로 사용하고 애플리케이션 검증과
-  역할을 나눴습니다.
-
 오류 코드 사전 등 부가 테이블을 포함한 전체 schema와 자연키·FK·CHECK는
 [`knowledge/data-model.md`](knowledge/data-model.md)에 정리했습니다.
 
@@ -267,29 +253,7 @@ erDiagram
 
 관련 코드: [`RebalanceCalculation.java`](backend/src/main/java/com/bapegg/stockpilot/rebalance/RebalanceCalculation.java)
 
-### 2. 통합테스트가 하나도 실행되지 않아도 성공으로 보이던 문제
-
-**문제**
-Oracle 환경변수가 없으면 Oracle 전용 테스트가 조건부 skip됩니다. 기존 검증은 Gradle
-종료 코드만 확인했기 때문에 통합테스트가 전부 skip돼도 “전체 테스트 통과”라고 오해할
-수 있었습니다.
-
-**원인**
-프로세스 성공과 테스트 충분성을 같은 것으로 취급했습니다. 빌드 도구 입장에서는 조건부
-skip도 정상 종료지만, 프로젝트 검증 목표에는 실패였습니다.
-
-**해결**
-`scripts/local.ps1 test`가 자격증명 존재 여부를 먼저 검사하고, Gradle이 생성한 JUnit XML을
-직접 집계해 `total > 0`, `skipped = 0`, `failures = 0`, `errors = 0`을 강제하도록 했습니다.
-자격증명 누락과 강제 skip을 실제로 주입해 guard가 실패하는지까지 테스트했습니다.
-
-**배운 점**
-CI/CD의 초록색 결과도 검증 대상입니다. **명령의 exit code와 실제로 검증된 범위는 다르다**는
-전제로 실행 증거를 다시 확인하는 습관을 얻었습니다.
-
-관련 코드: [`scripts/local.ps1`](scripts/local.ps1)
-
-### 3. 같은 재고가 중복 승인되거나 오래된 추천이 승인될 수 있던 문제
+### 2. 같은 재고가 중복 승인되거나 오래된 추천이 승인될 수 있던 문제
 
 **문제**
 두 담당자가 같은 공급 재고를 동시에 승인하거나, 응답을 못 받은 client가 같은 요청을
@@ -320,28 +284,7 @@ rollback을 Oracle 통합테스트로 고정했습니다.
 [`ApprovalTransactionExecutor.java`](backend/src/main/java/com/bapegg/stockpilot/approval/ApprovalTransactionExecutor.java),
 [`CurrentApprovalBasisLoader.java`](backend/src/main/java/com/bapegg/stockpilot/approval/CurrentApprovalBasisLoader.java)
 
-### 4. 공유 개발 DB를 오래 실사용하니 통합테스트가 스스로 깨지던 문제
-
-**문제**
-Spring Batch 메타데이터를 "이 입력 버전에 대한 job instance는 정확히 1개"라고 가정해
-조회하는 테스트와, 트랜잭션 밖에서 lazy 연관관계에 접근하는 테스트 헬퍼가 있었습니다.
-둘 다 처음에는 통과했지만, 같은 Oracle을 공유하는 개발 DB에서 화면을 통해 분석을
-반복 실행하고 실제 승인을 몇 번 만들자 실패로 바뀌었습니다.
-
-**원인**
-테스트가 "이 DB에는 이 테스트가 만든 데이터만 있다"는 격리를 실제로 보장하지 않고
-암묵적으로 가정했습니다. 처음 작성 시점에는 우연히 참이었을 뿐입니다.
-
-**해결**
-배치 메타데이터 조회는 최신 job instance를 명시적으로 선택하도록 바꾸고, 트랜잭션 밖
-lazy 접근은 필요한 필드까지 fetch join으로 미리 가져오도록 헬퍼를 수정했습니다.
-
-**배운 점**
-통합테스트의 "지금 통과한다"는 "격리를 보장한다"와 다릅니다. 공유 DB를 쓰는 이상
-**정확히 몇 건이 있다는 가정 대신 최신·특정 조건으로 좁히는 조회**를 기본값으로 삼아야
-합니다.
-
-### 5. 로컬 개발 DB가 최신 Flyway 마이그레이션과 조용히 어긋나 있던 문제
+### 3. 로컬 개발 DB가 최신 Flyway 마이그레이션과 조용히 어긋나 있던 문제
 
 **문제**
 장시간 켜둔 로컬 Oracle 컨테이너에서 백엔드가 기동 직후 `Migration checksum mismatch for
@@ -386,67 +329,6 @@ V7 내용이 바뀌었는데도 DB는 갱신되지 않은 채로 오래 유지�
 검증 script는 Oracle을 임의 생성·삭제하지 않습니다. full test는 실행 중인 Oracle과
 non-empty credential, 실제 JUnit XML의 zero skip을 모두 요구합니다.
 
-## 로컬 실행
-
-### 요구 환경
-
-- Java 21
-- Node.js 22 LTS 이상과 pnpm
-- Docker Desktop
-
-### 최초 설정과 DB
-
-```powershell
-.\scripts\local.ps1 setup
-.\scripts\local.ps1 seed-check
-.\scripts\local.ps1 db-up
-.\scripts\local.ps1 db-status
-```
-
-### 애플리케이션 실행
-
-Backend:
-
-```powershell
-.\scripts\local.ps1 backend
-```
-
-다른 터미널에서 Frontend:
-
-```powershell
-pnpm --dir frontend install --frozen-lockfile
-.\scripts\local.ps1 frontend
-```
-
-- Frontend: `http://localhost:5173`
-- Backend: `http://localhost:8081`
-
-### 전체 검증
-
-```powershell
-.\scripts\local.ps1 seed-check
-.\scripts\local.ps1 test-db-free
-.\scripts\local.ps1 db-status
-.\scripts\local.ps1 test
-git diff --check
-```
-
-## 제품 경계와 한계
-
-| 주체 | 책임 |
-|---|---|
-| StockPilot | 데이터 검사, 검토 대상 축소, 결정론적 계산, 제약 확인, scenario 비교, ERP 이동요청 초안 |
-| 재고 배분 담당자 | 판매 맥락 확인, 최종 수량 수정, 보류·승인·반려 |
-| ERP/WMS/TMS | 실제 이동지시 접수, 피킹·출고·운송·입고와 재고 반영 |
-| AI | Java가 계산한 사실의 선택적 설명. 수량·우선순위·상태 결정 금지 |
-
-- 실제 LLM provider adapter는 구현하지 않았습니다.
-- 인증/인가, 담당자별 업무 할당과 외부 ERP/WMS/TMS 연동은 범위 밖입니다.
-- 운영 scheduler, 정지된 `RUNNING` 복구와 첫 JobInstance 시작 경합의 운영 정규화는
-  구현하지 않았습니다.
-- Batch는 합성 규모에서 검증한 단일 Tasklet이며 대규모 운영 성능을 주장하지 않습니다.
-- 모든 데이터는 합성 데이터이며 정책과 임계값은 특정 기업의 실제 정책이 아닙니다.
-
 ## 설계 참고 자료
 
 - [Oracle Retail 재배분 workflow](https://docs.oracle.com/en/industries/retail/retail-inventory-planning-optimization-cloud/26.1.101.0/ipoio/workflow1.htm) —
@@ -454,5 +336,4 @@ git diff --check
 - [Oracle Retail 매장 이동](https://docs.oracle.com/en/industries/retail/store-inventory-op-cloud/latest/rsoug/transfers.htm) —
   요청·승인·출고·입고 책임 경계의 참고
 
-특정 기업의 내부 시스템이나 절차를 그대로 반영한 것은 아니며, 공개된 일반적인 리테일
-재배분 업무 흐름을 참고해 설계했습니다.
+공개된 일반적인 리테일 재배분 업무 흐름을 참고해 설계했습니다.

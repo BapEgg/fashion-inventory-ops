@@ -12,9 +12,9 @@ StockPilot은 “어느 매장에서 어떤 상품이 부족한가?”를 보여
 
 ## 시연 영상
 
-[![시연 영상 재생](docs/images/stockpilot-thumbnail.png)](docs/videos/stockpilot-demo.mp4)
+[![시연 영상 재생](docs/images/stockpilot-thumbnail.png)](https://raw.githubusercontent.com/BapEgg/fashion-inventory-ops/main/docs/videos/stockpilot-demo.mp4)
 
-위 썸네일을 클릭하면 GitHub에서 영상이 재생됩니다. 재고 현황 갱신 → 필터링 → 근거
+위 썸네일을 클릭하면 영상이 새 탭에서 재생됩니다. 재고 현황 갱신 → 필터링 → 근거
 확인 → 승인까지, 담당자가 실제로 한 건을 처리하는 흐름을 1.5배속으로 담았습니다.
 
 ## 개요

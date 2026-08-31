@@ -9,11 +9,14 @@ redesign's own implementation contract is
 
 ## Accepted system
 
-- Oracle/Flyway V1..V15 provide the synthetic Korean demo dataset, audit/error catalogs and MVP-2
-  persistence model. (V16, an additive demo-volume migration, was found to reference product SKUs
-  that were never seeded and is archived unapplied at
-  `knowledge/archive/unused-migrations/V16__expand_mvp2_demo_scenario_v2.sql` -- not on the active
-  migration path.)
+- Oracle/Flyway V1..V16 provide the synthetic Korean demo dataset, audit/error catalogs and MVP-2
+  persistence model. V16 (additive demo-volume expansion, own `FASHION-2026-FW-SEP-V2`
+  `input_snapshot_version`, isolated from V7's golden scenario) originally referenced six product
+  SKUs never seeded and three store ids that never existed (`STORE-SEOUL-GANGNAM-FLAGSHIP` instead
+  of `STORE-GANGNAM`, etc.) and was missing the NOT NULL `sp_product.launch_date`/`season_code`/
+  `sales_status` columns V6 added -- fixed by adding the six products to the catalog inside V16
+  itself and correcting the store ids/columns; verified with a from-scratch migration, the full
+  Oracle test suite and a live analysis run (54 review rows across 6 SKUs x 9 stores).
 - Deterministic Java code owns analysis, demand metrics, donor eligibility, scenario quantities,
   MANUAL feasibility, approval validation and decision status.
 - `AllocatorWorkStatus` (`DECISION_REQUIRED/ON_HOLD/REVIEW_INPUT/NO_TRANSFER_OPTION/COMPLETED`) is
@@ -88,4 +91,3 @@ redesign's own implementation contract is
 - Real LLM provider adapter.
 - Operational scheduler, stale `RUNNING` recovery and first-JobInstance race normalization.
 - Authentication/authorization and external ERP/WMS/TMS integration.
-- V16's larger demo-volume seed data (archived, unapplied -- see above).

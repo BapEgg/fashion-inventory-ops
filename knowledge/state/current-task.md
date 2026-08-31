@@ -37,8 +37,7 @@ auto-simulate/approval-confirm/live-refresh flow end to end.
 
 ## Next verifiable action
 
-Wait for a user-selected scope. Two known loose ends, neither blocking: (1) `V16` (extra demo seed
-volume for screen recording) references product SKUs that were never seeded and is archived
-unapplied at `knowledge/archive/unused-migrations/` -- fix or discard on request. (2)
-`data/seed/mvp2/*.csv` and `scripts/validate-seed.ps1` were not touched this session and were not
-re-verified against the current schema.
+Wait for a user-selected scope. One known loose end, not blocking: `data/seed/mvp2/*.csv` and
+`scripts/validate-seed.ps1` were not touched this session and were not re-verified against the
+current schema. (V16's demo-volume expansion, once found broken and archived, was fixed and is
+back on the active migration path -- see implemented-state.md.)

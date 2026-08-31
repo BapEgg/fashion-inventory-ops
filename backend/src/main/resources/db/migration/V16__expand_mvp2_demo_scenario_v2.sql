@@ -1,9 +1,26 @@
 -- Adds a second, larger SYNTHETIC/DEMO scenario set under its own input_snapshot_version so the
 -- exception list has enough rows to span multiple pages for demo-recording purposes. This is
--- fully additive and isolated from the V7 golden scenario: it reuses the existing product catalog
--- (sp_product has no version column) and existing stores, tags every version-scoped row with
--- 'FASHION-2026-FW-SEP-V2', and never touches 'FASHION-2026-FW-SEP-V1' rows -- so it cannot affect
--- the V7-scoped golden-scenario assertions (exactly 12 metrics / 11 recommended quantity).
+-- fully additive and isolated from the V7 golden scenario: it adds six new FW26-branded products
+-- to the catalog (sp_product has no version column, so these rows are permanent, not
+-- version-scoped) and reuses three existing stores plus six new ones, tags every version-scoped
+-- row with 'FASHION-2026-FW-SEP-V2', and never touches 'FASHION-2026-FW-SEP-V1' rows -- so it
+-- cannot affect the V7-scoped golden-scenario assertions (exactly 12 metrics / 11 recommended
+-- quantity).
+
+INSERT ALL
+    INTO sp_product (sku_id, product_name, category, color, size_name, launch_date, season_code, sales_status)
+    VALUES ('FW26-TS-001-BK-M', '시그니처 크루넥 티셔츠', '상의', '블랙', 'M', DATE '2026-01-01', 'DEMO-2026-FW', 'ACTIVE')
+    INTO sp_product (sku_id, product_name, category, color, size_name, launch_date, season_code, sales_status)
+    VALUES ('FW26-SH-014-WH-M', '베이직 포플린 셔츠', '상의', '화이트', 'M', DATE '2026-01-01', 'DEMO-2026-FW', 'ACTIVE')
+    INTO sp_product (sku_id, product_name, category, color, size_name, launch_date, season_code, sales_status)
+    VALUES ('FW26-DJ-007-BL-M', '스트레이트 데님 팬츠', '하의', '블루', 'M', DATE '2026-01-01', 'DEMO-2026-FW', 'ACTIVE')
+    INTO sp_product (sku_id, product_name, category, color, size_name, launch_date, season_code, sales_status)
+    VALUES ('FW26-KN-021-GN-M', '라운드넥 니트 스웨터', '상의', '그린', 'M', DATE '2026-01-01', 'DEMO-2026-FW', 'ACTIVE')
+    INTO sp_product (sku_id, product_name, category, color, size_name, launch_date, season_code, sales_status)
+    VALUES ('FW26-TC-005-BE-M', '더블 브레스티드 트렌치코트', '아우터', '베이지', 'M', DATE '2026-01-01', 'DEMO-2026-FW', 'ACTIVE')
+    INTO sp_product (sku_id, product_name, category, color, size_name, launch_date, season_code, sales_status)
+    VALUES ('FW26-OP-018-RD-M', '플로럴 프린트 원피스', '원피스', '레드', 'M', DATE '2026-01-01', 'DEMO-2026-FW', 'ACTIVE')
+SELECT 1 FROM dual;
 
 INSERT ALL
     INTO sp_store (store_id, store_name, region, store_type, inventory_owner_code, transfer_zone)
@@ -26,9 +43,9 @@ INSERT INTO sp_inventory_snapshot (
     input_snapshot_version, source_type
 )
 WITH expansion_stores (store_id, pattern) AS (
-    SELECT 'STORE-SEOUL-GANGNAM-FLAGSHIP', 'STOCKOUT' FROM dual
-    UNION ALL SELECT 'STORE-SEOUL-HONGDAE', 'OVERSTOCK' FROM dual
-    UNION ALL SELECT 'STORE-BUSAN-CENTUM', 'OVERSTOCK' FROM dual
+    SELECT 'STORE-GANGNAM', 'STOCKOUT' FROM dual
+    UNION ALL SELECT 'STORE-HONGDAE', 'OVERSTOCK' FROM dual
+    UNION ALL SELECT 'STORE-BUSAN-SEOMYEON', 'OVERSTOCK' FROM dual
     UNION ALL SELECT 'STORE-SEOUL-SINCHON', 'STOCKOUT' FROM dual
     UNION ALL SELECT 'STORE-SEOUL-JAMSIL', 'OVERSTOCK' FROM dual
     UNION ALL SELECT 'STORE-DAEGU-CENTRAL', 'STOCKOUT' FROM dual
@@ -68,9 +85,9 @@ INSERT INTO sp_daily_sale (
     input_snapshot_version, source_type
 )
 WITH expansion_stores (store_id, pattern) AS (
-    SELECT 'STORE-SEOUL-GANGNAM-FLAGSHIP', 'STOCKOUT' FROM dual
-    UNION ALL SELECT 'STORE-SEOUL-HONGDAE', 'OVERSTOCK' FROM dual
-    UNION ALL SELECT 'STORE-BUSAN-CENTUM', 'OVERSTOCK' FROM dual
+    SELECT 'STORE-GANGNAM', 'STOCKOUT' FROM dual
+    UNION ALL SELECT 'STORE-HONGDAE', 'OVERSTOCK' FROM dual
+    UNION ALL SELECT 'STORE-BUSAN-SEOMYEON', 'OVERSTOCK' FROM dual
     UNION ALL SELECT 'STORE-SEOUL-SINCHON', 'STOCKOUT' FROM dual
     UNION ALL SELECT 'STORE-SEOUL-JAMSIL', 'OVERSTOCK' FROM dual
     UNION ALL SELECT 'STORE-DAEGU-CENTRAL', 'STOCKOUT' FROM dual
@@ -108,9 +125,9 @@ INSERT INTO sp_store_sku_policy (
     target_coverage_days, retained_days, input_snapshot_version, assumption_type
 )
 WITH expansion_stores (store_id) AS (
-    SELECT 'STORE-SEOUL-GANGNAM-FLAGSHIP' FROM dual
-    UNION ALL SELECT 'STORE-SEOUL-HONGDAE' FROM dual
-    UNION ALL SELECT 'STORE-BUSAN-CENTUM' FROM dual
+    SELECT 'STORE-GANGNAM' FROM dual
+    UNION ALL SELECT 'STORE-HONGDAE' FROM dual
+    UNION ALL SELECT 'STORE-BUSAN-SEOMYEON' FROM dual
     UNION ALL SELECT 'STORE-SEOUL-SINCHON' FROM dual
     UNION ALL SELECT 'STORE-SEOUL-JAMSIL' FROM dual
     UNION ALL SELECT 'STORE-DAEGU-CENTRAL' FROM dual
@@ -138,14 +155,14 @@ INSERT INTO sp_store_transfer_route (
     input_snapshot_version, assumption_type
 )
 WITH donors (donor_store_id, lead_time_days) AS (
-    SELECT 'STORE-SEOUL-HONGDAE', 1 FROM dual
-    UNION ALL SELECT 'STORE-BUSAN-CENTUM', 3 FROM dual
+    SELECT 'STORE-HONGDAE', 1 FROM dual
+    UNION ALL SELECT 'STORE-BUSAN-SEOMYEON', 3 FROM dual
     UNION ALL SELECT 'STORE-SEOUL-JAMSIL', 1 FROM dual
     UNION ALL SELECT 'STORE-GWANGJU-CENTRAL', 4 FROM dual
     UNION ALL SELECT 'STORE-SUWON-CENTRAL', 2 FROM dual
 ),
 receivers (receiver_store_id) AS (
-    SELECT 'STORE-SEOUL-GANGNAM-FLAGSHIP' FROM dual
+    SELECT 'STORE-GANGNAM' FROM dual
     UNION ALL SELECT 'STORE-SEOUL-SINCHON' FROM dual
     UNION ALL SELECT 'STORE-DAEGU-CENTRAL' FROM dual
     UNION ALL SELECT 'STORE-INCHEON-CENTRAL' FROM dual

@@ -1,6 +1,6 @@
 # StockPilot
 
-![StockPilot](docs/images/stockpilot-thumbnail.png)
+[![StockPilot](docs/images/stockpilot-thumbnail.png)](https://raw.githubusercontent.com/BapEgg/fashion-inventory-ops/main/docs/videos/stockpilot-demo.mp4)
 
 > 패션 리테일의 매장별·SKU별 재고 불균형을 찾아, 담당자가 **근거를 확인하고
 > 매장간 이동수량을 검토·승인**할 수 있게 만든 재고 배분 의사결정 지원 서비스
@@ -9,13 +9,6 @@ StockPilot은 “어느 매장에서 어떤 상품이 부족한가?”를 보여
 않습니다. 최근 판매, 품절로 잘린 관측값, 행사, 입고 예정, 진행 중 이동, 매장별
 보호재고와 이동경로를 함께 계산해 **검토 대상 → 공급 후보 → 이동 시나리오 → 사람의
 결정 → ERP 이동요청 초안**까지 연결합니다.
-
-## 시연 영상
-
-[![시연 영상 재생](docs/images/stockpilot-thumbnail.png)](https://raw.githubusercontent.com/BapEgg/fashion-inventory-ops/main/docs/videos/stockpilot-demo.mp4)
-
-위 썸네일을 클릭하면 영상이 새 탭에서 재생됩니다. 재고 현황 갱신 → 필터링 → 근거
-확인 → 승인까지, 담당자가 실제로 한 건을 처리하는 흐름을 1.5배속으로 담았습니다.
 
 ## 개요
 
